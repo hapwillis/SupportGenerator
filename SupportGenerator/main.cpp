@@ -7,7 +7,7 @@
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-//void drop_callback(GLFWwindow* window, int count, const char** paths);
+void drop_callback(GLFWwindow* window, int count, const char** paths);
 void processInput(GLFWwindow *window);
 
 // settings
@@ -38,7 +38,7 @@ int main()
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	//glfwSetDropCallback(window, drop_callback);
+	glfwSetDropCallback(window, drop_callback);
 
 	// glad: load all OpenGL function pointers
 	// ---------------------------------------
