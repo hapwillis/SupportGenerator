@@ -4,6 +4,12 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#include <Camera.h>
+#include <DefaultShader.h>
+#include <Octree.h>
+#include <Heap.h>
+#include <Model.h>
+
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -48,6 +54,32 @@ int main()
 		return -1;
 	}
 
+	// configure global opengl state
+	// -----------------------------
+	//glEnable(GL_DEPTH_TEST);
+
+	// build and compile shader 
+	// ------------------------------------
+	DefaultShader shader("default.vs", "default.fs");
+
+	float vertices[] = {
+		-0.5f, -0.5f, 0.0f,
+		0.5f, -0.5f, 0.0f,
+		0.0f,  0.5f, 0.0f
+	};
+	unsigned int VBO, VAO;
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glBindVertexArray(VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	// how to parse position attributes inside the VBO
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 	// render loop
 	// -----------
 	while (!glfwWindowShouldClose(window))
@@ -58,14 +90,36 @@ int main()
 
 		// render
 		// ------
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClearColor(0.718f, 0.718f, 0.718f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+
+
+		// create transformations
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 proj;
+		model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.0f));
+		proj = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+		shader.use();
+		shader.setMat4("projection", proj);
+		shader.setMat4("view", view);
+		shader.setMat4("model", model);
+
+		// get matrix's uniform location and set matrix
+
+		glBindVertexArray(VAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		// -------------------------------------------------------------------------------
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
 
 	// glfw: terminate, clearing all previously allocated GLFW resources.
 	// ------------------------------------------------------------------
@@ -99,5 +153,5 @@ void drop_callback(GLFWwindow* window, int count, const char** paths)
 	int i;
 	for (i = 0; i < count; i++)
 		std::cout << "file detected" << std::endl;
-		//handle_dropped_file(paths[i]);
+	//handle_dropped_file(paths[i]);
 }
