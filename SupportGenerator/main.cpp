@@ -4,8 +4,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
+//#define GLM_ENABLE_EXPERIMENTAL
+//#include <glm/gtx/string_cast.hpp>
 
 #include <Camera.h>
 #include <DefaultShader.h>
@@ -24,9 +24,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+const float FOV = glm::radians(45.0f);
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(FOV, SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0f, 0.0f, 3.0f));
 int scrWidth = SCR_WIDTH;
 int scrHeight = SCR_HEIGHT;
 
@@ -98,11 +99,12 @@ int main()
 	{
 		// input
 		// -----
-	/*	std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
-		std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
-		std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
-		std::cout << "Distance: " << camera.Distance << std::endl;*/
+		std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
+		//std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
+		//std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
+		//std::cout << "Distance: " << camera.Distance << std::endl;
 		processInput(window);
+		std::cout << "Distance: " << camera.Distance << std::endl;
 		
 		// render
 		// ------
@@ -120,7 +122,7 @@ int main()
 		// glm::mat4 view(1.0f);
 		//glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 		glm::mat4 view = camera.GetViewMatrix();
-		std::cout << glm::to_string(view) << std::endl;
+		//std::cout << glm::to_string(view) << std::endl;
 
 		shader.use();
 		shader.setMat4("projection", proj);

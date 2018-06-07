@@ -1,6 +1,6 @@
 #include "Camera.h"
 
-Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) : 
+Camera::Camera(float fov, int screenWidth, int screenHeight, glm::vec3 position, glm::vec3 up, float yaw, float pitch) :
 	Target(glm::vec3(0.0f, 0.0f, 0.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), 
 	TrackPan(false), TrackMov(false), XPos(0), YPos(0)
 {
@@ -8,6 +8,8 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) :
 	WorldUp = up;
 	Yaw = yaw;
 	Pitch = pitch;
+	Hfov = fov;
+	Vfov = fov * screenHeight / screenWidth;
 	Distance = glm::log2(glm::length(Target - Position)); //log base 2 of distance
 	updateCameraVectors();
 }
@@ -44,11 +46,11 @@ void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPit
 	if (TrackMov && TrackPan) {
 		XPos = xpos;
 		YPos = ypos;
-		// Can't rotate and move at the same time, return early
+		// Not useful to rotate and move at the same time, return early
 		return;
 	}
 	
-	if (TrackMov || TrackPan) {
+	if (TrackPan) {
 		Yaw = xpos - XPos;
 		Pitch = ypos - YPos;
 
@@ -60,11 +62,19 @@ void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPit
 				Pitch = -0.499f;
 		}
 
-		if (TrackPan) {
-			Position = updateCameraVectors();
-			return;
-		}
-		Target = updateCameraVectors();
+		Position = glm::length(Position) * updateCameraVectors();
+	}
+
+	if (TrackMov) {
+		// Update Target and Position by right and up vectors
+		float d = glm::length(Target - Position);
+		glm::vec3 deltaH = Right * (XPos - xpos) * d * tan(Hfov);
+		glm::vec3 deltaV = Up * (ypos - YPos) * d * tan(Vfov);
+		glm::vec3 delta = deltaH + deltaV;
+		Target = Target + delta;
+		Position = Position + delta;
+		XPos = xpos;
+		YPos = ypos;
 	}
 }
 
@@ -75,6 +85,7 @@ void Camera::ProcessMouseScroll(float yoffset)
 	Position = Target + glm::normalize(Position - Target) * glm::exp2(Distance);
 }
 
+// For perspective panning, apply this*glm::length(Target - Position) to the target
 glm::vec3 Camera::updateCameraVectors()
 {
 	// Calculate the new position
@@ -87,5 +98,5 @@ glm::vec3 Camera::updateCameraVectors()
 	Right = glm::normalize(glm::cross(Target - Position, WorldUp));  // Normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
 	Up = glm::normalize(glm::cross(Right, Target - Position));
 	
-	return newPos * glm::length(Target - Position);
+	return newPos;
 }
