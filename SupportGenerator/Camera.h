@@ -5,6 +5,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <Model.h>
+
 // Default camera values?
 const float YAW = -0.25f;
 const float PITCH = 0.0f;
@@ -49,6 +51,7 @@ public:
 	void ProcessMouseScroll(float yoffset);
 
 	// Need a new function to update position for loading a model
+	void TargetModel(Model* model);
 
 private:
 	glm::vec3 updateCameraVectors();

@@ -6,7 +6,7 @@ Camera::Camera(float fov, int screenWidth, int screenHeight, glm::vec3 position,
 {
 	Position = position;
 	WorldUp = up;
-	Yaw = yaw;
+	Yaw = yaw; //compute these from the target location
 	Pitch = pitch;
 	Hfov = fov;
 	Vfov = fov * screenHeight / screenWidth;
@@ -83,6 +83,16 @@ void Camera::ProcessMouseScroll(float yoffset)
 	// Move Position closer to Target
 	Distance = Distance + MouseSensitivity * yoffset;
 	Position = Target + glm::normalize(Position - Target) * glm::exp2(Distance);
+}
+
+void Camera::TargetModel(Model* model) 
+{
+	float modelRadius = model->BoundingSphere();
+	Target = glm::vec3(0, modelRadius, 0);
+	Position = glm::vec3(0, 1.5f * modelRadius, 1.5f * modelRadius);
+
+	updateCameraVectors(); //update pan and pitch to match vectors instead
+	// also update distance
 }
 
 // For perspective panning, apply this*glm::length(Target - Position) to the target

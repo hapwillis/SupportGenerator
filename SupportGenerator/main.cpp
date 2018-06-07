@@ -1,8 +1,5 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 
 //#define GLM_ENABLE_EXPERIMENTAL
 //#include <glm/gtx/string_cast.hpp>
@@ -30,6 +27,9 @@ const float FOV = glm::radians(45.0f);
 Camera camera(FOV, SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0f, 0.0f, 3.0f));
 int scrWidth = SCR_WIDTH;
 int scrHeight = SCR_HEIGHT;
+
+// Model
+Model* model = {0};
 
 int main()
 {
@@ -99,12 +99,11 @@ int main()
 	{
 		// input
 		// -----
-		std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
+		//std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
 		//std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
 		//std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
 		//std::cout << "Distance: " << camera.Distance << std::endl;
 		processInput(window);
-		std::cout << "Distance: " << camera.Distance << std::endl;
 		
 		// render
 		// ------
@@ -113,9 +112,9 @@ int main()
 
 
 		// create transformations
-		glm::mat4 model(1.0f); // Turns out these *don't* initialize to an identity by default
+		glm::mat4 modelLoc(1.0f); // Turns out these *don't* initialize to an identity by default
 		glm::mat4 proj;
-		model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		modelLoc = glm::rotate(modelLoc, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 		proj = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
 		// camera/view transformation
@@ -127,7 +126,10 @@ int main()
 		shader.use();
 		shader.setMat4("projection", proj);
 		shader.setMat4("view", view);
-		shader.setMat4("model", model);
+		shader.setMat4("model", modelLoc);
+
+		if (model)
+			model->Draw(shader);
 
 		// get matrix's uniform location and set matrix
 
@@ -174,18 +176,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-// The callback function receives an array of paths encoded as UTF-8.
-void drop_callback(GLFWwindow* window, int count, const char** paths)
-{
-	// The path array and its strings are only valid until the file drop callback returns, 
-	// as they may have been generated specifically for that event. You need to make a 
-	// deep copy of the array if you want to keep the paths.
-	int i;
-	for (i = 0; i < count; i++)
-		std::cout << "file detected" << std::endl;
-	//handle_dropped_file(paths[i]);
-}
-
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	double xpos, ypos;
@@ -207,4 +197,20 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	camera.ProcessMouseScroll(yoffset);
 }
 
+// The callback function receives an array of paths encoded as UTF-8.
+void drop_callback(GLFWwindow* window, int count, const char** paths)
+{
+	// The path array and its strings are only valid until the file drop callback returns, 
+	// as they may have been generated specifically for that event. You need to make a 
+	// deep copy of the array if you want to keep the paths.
+	int i;
+	for (i = 0; i < count; i++)
+		std::cout << "file detected" << std::endl;
 
+	std::string p(paths[0]);
+	if (model)
+		delete model;
+
+	model = new Model(p);
+	camera.TargetModel(model);
+}
