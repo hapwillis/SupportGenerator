@@ -4,8 +4,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-//#define GLM_ENABLE_EXPERIMENTAL
-//#include <glm/gtx/string_cast.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 
 #include <Camera.h>
 #include <DefaultShader.h>
@@ -120,7 +120,7 @@ int main()
 		// glm::mat4 view(1.0f);
 		//glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 		glm::mat4 view = camera.GetViewMatrix();
-		//std::cout << glm::to_string(view) << std::endl;
+		std::cout << glm::to_string(view) << std::endl;
 
 		shader.use();
 		shader.setMat4("projection", proj);

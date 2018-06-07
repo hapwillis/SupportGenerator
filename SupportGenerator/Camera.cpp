@@ -64,7 +64,7 @@ void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPit
 			Position = updateCameraVectors();
 			return;
 		}
-		Target = Target + updateCameraVectors();
+		Target = updateCameraVectors();
 	}
 }
 
