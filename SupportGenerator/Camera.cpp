@@ -8,6 +8,7 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) :
 	WorldUp = up;
 	Yaw = yaw;
 	Pitch = pitch;
+	Distance = glm::log2(glm::length(Target - Position)); //log base 2 of distance
 	updateCameraVectors();
 }
 
@@ -65,18 +66,13 @@ void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPit
 		}
 		Target = Target + updateCameraVectors();
 	}
-	// movement across the screen space will rotate view by 2pi
-	//buttonDown sets new startpos and starts mousepos being checked
-	//buttonUp stops mousePos being checked
-
-	// movement across the screen space will move lookAt target by FOV/screenspace
-	//buttonDown sets new startpos and starts mousepos being checked
-	//buttonUp stops mousePos being checked
 }
 
 void Camera::ProcessMouseScroll(float yoffset)
 {
 	// Move Position closer to Target
+	Distance = Distance + MouseSensitivity * yoffset;
+	Position = Target + glm::normalize(Position - Target) * glm::exp2(Distance);
 }
 
 glm::vec3 Camera::updateCameraVectors()

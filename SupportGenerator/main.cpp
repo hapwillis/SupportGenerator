@@ -98,6 +98,10 @@ int main()
 	{
 		// input
 		// -----
+	/*	std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
+		std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
+		std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
+		std::cout << "Distance: " << camera.Distance << std::endl;*/
 		processInput(window);
 		
 		// render
@@ -152,6 +156,8 @@ void processInput(GLFWwindow *window)
 
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
+	// TODO: scale by screen area
+	//std::cout << "x/y coords: " << xpos / scrWidth << ", " << ypos / scrHeight << std::endl;
 	camera.ProcessMouseMovement(xpos / scrWidth, ypos / scrHeight, true);
 }
 
