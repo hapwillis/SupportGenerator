@@ -1,7 +1,7 @@
 #include "Camera.h"
 
 Camera::Camera(float fov, int screenWidth, int screenHeight, glm::vec3 position, glm::vec3 up, float yaw, float pitch) :
-	Target(glm::vec3(0.0f, 0.0f, 0.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), 
+	Target(glm::vec3(0.0f, 0.0f, 0.0f)), MouseSensitivity(SENSITIVITY), 
 	TrackPan(false), TrackMov(false), XPos(0), YPos(0)
 {
 	Position = position;

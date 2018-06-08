@@ -62,35 +62,44 @@ void Model::Draw(DefaultShader shader)
 
 float Model::BoundingSphere()
 {
+	// Takes .27 seconds
+	float time = glfwGetTime();
 	// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
 	float maxX = 0, minX = 0;
 	float maxY = 0, minY = 0;
 	float maxZ = 0, minZ = 0;
 
 	for (int i = 0; i < meshes.size(); i++) {
-		for (int j = 0; j < meshes[i].vertices.size(); j++) {
-			if (meshes[i].vertices[j].Position.x > maxX)
-				maxX = meshes[i].vertices[j].Position.x;
-			if (meshes[i].vertices[j].Position.x < minX)
-				minX = meshes[i].vertices[j].Position.x;
+		Mesh *mesh = &meshes[i];
+		for (int j = 0; j < mesh->vertices.size(); j++) {
+			glm::vec3 *vert = &(mesh->vertices[j].Position);
 
-			if (meshes[i].vertices[j].Position.y > maxY)
-				maxY = meshes[i].vertices[j].Position.y;
-			if (meshes[i].vertices[j].Position.y < minY)
-				minY = meshes[i].vertices[j].Position.y;
+			if (vert->x > maxX)
+				maxX = vert->x;
+			if (vert->x < minX)
+				minX = vert->x;
 
-			if (meshes[i].vertices[j].Position.z > maxZ)
-				maxZ = meshes[i].vertices[j].Position.z;
-			if (meshes[i].vertices[j].Position.z < minZ)
-				minZ = meshes[i].vertices[j].Position.z;
+			if (vert->y > maxY)
+				maxY = vert->y;
+			if (vert->y < minY)
+				minY = vert->y;
+
+			if (vert->z > maxZ)
+				maxZ = vert->z;
+			if (vert->z < minZ)
+				minZ = vert->z;
 		}
 	}
 
-	return std::min({(maxX - minX), (maxY - minY), (maxZ - minZ)});
+	float ret = std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
+	std::cout << "Time to bound: " << glfwGetTime() - time << std::endl;
+
+	return ret;
 }
 
 void Model::loadModel(std::string &path)
 {
+	// Loading time for AssImp: .067 seconds
 	Assimp::Importer import;
 	// aiProcess_GenNormals to create normals
 	const aiScene *scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -102,7 +111,10 @@ void Model::loadModel(std::string &path)
 	}
 	directory = path.substr(0, path.find_last_of('/'));
 
+	// Time for processNode: 1.32 seconds.  Awful
+	float time = glfwGetTime();
 	processNode(scene->mRootNode, scene);
+	std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
 }
 
 void Model::processNode(aiNode *node, const aiScene *scene)
@@ -123,24 +135,28 @@ void Model::processNode(aiNode *node, const aiScene *scene)
 Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 {
 	std::vector<Vertex> vertices;
+	vertices.reserve(mesh->mNumVertices);
 	std::vector<unsigned int> indices;
+	indices.reserve(mesh->mNumFaces);
 
-	glm::vec3 vector;
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
+		glm::vec3 vector;
 		Vertex vertex;
 		// positions
-		vector.x = mesh->mVertices[i].x;
-		vector.y = mesh->mVertices[i].y;
-		vector.z = mesh->mVertices[i].z;
+		aiVector3D *vert = &(mesh->mVertices[i]);
+		vector.x = vert->x;
+		vector.y = vert->y;
+		vector.z = vert->z;
 		vertex.Position = vector;
 		// normals
-		vector.x = mesh->mNormals[i].x;
-		vector.y = mesh->mNormals[i].y;
-		vector.z = mesh->mNormals[i].z;
+		aiVector3D *norm = &(mesh->mNormals[i]);
+		vector.x = norm->x;
+		vector.y = norm->y;
+		vector.z = norm->z;
 		vertex.Normal = vector;
 
-		vertices.push_back(vertex);
+		vertices.push_back(vertex); //bottlenecking
 	}
 
 	// process indices
@@ -149,7 +165,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		aiFace face = mesh->mFaces[i];
 		// retrieve all indices of the face and store them in the indices vector
 		for (unsigned int j = 0; j < face.mNumIndices; j++)
-			indices.push_back(face.mIndices[j]);
+			indices.push_back(face.mIndices[j]); //bottlenecking
 	}
 
 	return Mesh(vertices, indices);

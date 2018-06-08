@@ -44,8 +44,8 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // uncomment this statement to fix compilation on OS X
 #endif
 
-														 // glfw window creation
-														 // --------------------
+	// glfw window creation
+	// --------------------
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
 	if (window == NULL)
 	{
@@ -166,8 +166,6 @@ void processInput(GLFWwindow *window)
 
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
-	// TODO: scale by screen area
-	//std::cout << "x/y coords: " << xpos / scrWidth << ", " << ypos / scrHeight << std::endl;
 	camera.ProcessMouseMovement(xpos / scrWidth, ypos / scrHeight, true);
 }
 
@@ -186,7 +184,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
-	// TODO: scale by screen area
 	
 	switch (button) {
 		case GLFW_MOUSE_BUTTON_LEFT : 
