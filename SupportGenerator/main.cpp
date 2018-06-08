@@ -128,13 +128,19 @@ int main()
 		shader.setMat4("view", view);
 		shader.setMat4("model", modelLoc);
 
+		shader.setVec3("lightOneDir", glm::vec3(0.0f, 0.0f, -1.0f));
+		shader.setFloat("lightOneInten", 1.0f);
+
+		shader.setVec3("camLightDir", -camera.Direction());
+		shader.setFloat("camLightInten", 0.8f);
+
 		if (model)
 			model->Draw(shader);
 
 		// get matrix's uniform location and set matrix
 
-		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		//glBindVertexArray(VAO);
+		//glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		// -------------------------------------------------------------------------------

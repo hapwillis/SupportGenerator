@@ -35,6 +35,10 @@
     <ClInclude Include="Model.h" />
     <ClInclude Include="Octree.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="default.fs" />
+    <None Include="default.vs" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{C07A9232-8BD9-46ED-807D-D877AEE85A76}</ProjectGuid>

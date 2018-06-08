@@ -85,6 +85,11 @@ void Camera::ProcessMouseScroll(float yoffset)
 	Position = Target + glm::normalize(Position - Target) * glm::exp2(Distance);
 }
 
+glm::vec3 Camera::Direction()
+{
+	return glm::normalize(Target - Position);
+}
+
 void Camera::TargetModel(Model* model) 
 {
 	float modelRadius = model->BoundingSphere();

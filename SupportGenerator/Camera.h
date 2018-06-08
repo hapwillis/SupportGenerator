@@ -50,6 +50,8 @@ public:
 
 	void ProcessMouseScroll(float yoffset);
 
+	glm::vec3 Direction();
+
 	// Need a new function to update position for loading a model
 	void TargetModel(Model* model);
 
