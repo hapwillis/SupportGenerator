@@ -62,8 +62,6 @@ void Model::Draw(DefaultShader shader)
 
 float Model::BoundingSphere()
 {
-	// Takes .27 seconds
-	float time = glfwGetTime();
 	// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
 	float maxX = 0, minX = 0;
 	float maxY = 0, minY = 0;
@@ -71,8 +69,9 @@ float Model::BoundingSphere()
 
 	for (int i = 0; i < meshes.size(); i++) {
 		Mesh *mesh = &meshes[i];
-		for (int j = 0; j < mesh->vertices.size(); j++) {
-			glm::vec3 *vert = &(mesh->vertices[j].Position);
+		//unsigned int size = mesh->vertices.size();
+		for (Vertex v : mesh->vertices) {
+			glm::vec3 *vert = &(v.Position);
 
 			if (vert->x > maxX)
 				maxX = vert->x;
@@ -91,9 +90,6 @@ float Model::BoundingSphere()
 		}
 	}
 
-	float ret = std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
-	std::cout << "Time to bound: " << glfwGetTime() - time << std::endl;
-
 	return ret;
 }
 
@@ -111,7 +107,7 @@ void Model::loadModel(std::string &path)
 	}
 	directory = path.substr(0, path.find_last_of('/'));
 
-	// Time for processNode: 1.32 seconds.  Awful
+	// Time for processNode: .52 seconds
 	float time = glfwGetTime();
 	processNode(scene->mRootNode, scene);
 	std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
@@ -134,10 +130,10 @@ void Model::processNode(aiNode *node, const aiScene *scene)
 
 Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 {
-	std::vector<Vertex> vertices;
-	vertices.reserve(mesh->mNumVertices);
-	std::vector<unsigned int> indices;
-	indices.reserve(mesh->mNumFaces);
+	std::vector<Vertex> vertices (mesh->mNumVertices);
+	//vertices.reserve(mesh->mNumVertices);
+	std::vector<unsigned int> indices(mesh->mNumFaces * 3);
+	//indices.reserve(mesh->mNumFaces);
 
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
@@ -156,16 +152,19 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		vector.z = norm->z;
 		vertex.Normal = vector;
 
-		vertices.push_back(vertex); //bottlenecking
+		vertices[i] = vertex; //still slow
 	}
 
 	// process indices
+	int index = 0;
 	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
 	{
 		aiFace face = mesh->mFaces[i];
 		// retrieve all indices of the face and store them in the indices vector
-		for (unsigned int j = 0; j < face.mNumIndices; j++)
-			indices.push_back(face.mIndices[j]); //bottlenecking
+		for (unsigned int j = 0; j < face.mNumIndices; j++) {
+			indices[index] = face.mIndices[j]; // still slow
+			index++;
+		}
 	}
 
 	return Mesh(vertices, indices);
