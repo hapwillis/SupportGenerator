@@ -90,7 +90,7 @@ float Model::BoundingSphere()
 		}
 	}
 
-	return ret;
+	return std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
 }
 
 void Model::loadModel(std::string &path)
@@ -160,11 +160,11 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
 	{
 		aiFace face = mesh->mFaces[i];
+		index = i * 3;
+		indices[index] = face.mIndices[0];
+		indices[index + 1] = face.mIndices[1];
+		indices[index + 2] = face.mIndices[2];
 		// retrieve all indices of the face and store them in the indices vector
-		for (unsigned int j = 0; j < face.mNumIndices; j++) {
-			indices[index] = face.mIndices[j]; // still slow
-			index++;
-		}
 	}
 
 	return Mesh(vertices, indices);

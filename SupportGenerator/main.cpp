@@ -100,8 +100,11 @@ int main()
 		// input
 		// -----
 		//std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
-		//std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
-		//std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
+		/*std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
+		std::cout << "Pitch: " << camera.Pitch << " Yaw: " << camera.Yaw << std::endl;
+		std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
+		std::cout << "WorldUp vector: " << camera.WorldUp.x << ", " << camera.WorldUp.y << ", " << camera.WorldUp.z << std::endl;
+		std::cout << "Right vector: " << camera.Right.x << ", " << camera.Right.y << ", " << camera.Right.z << std::endl;*/
 		//std::cout << "Distance: " << camera.Distance << std::endl;
 		processInput(window);
 		
@@ -114,24 +117,22 @@ int main()
 		// create transformations
 		glm::mat4 modelLoc(1.0f); // Turns out these *don't* initialize to an identity by default
 		glm::mat4 proj;
-		modelLoc = glm::rotate(modelLoc, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		proj = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		// Convert to right-handed space (z is not up)
+		modelLoc = glm::rotate(modelLoc, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		proj = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
 
 		// camera/view transformation
-		// glm::mat4 view(1.0f);
-		//glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 		glm::mat4 view = camera.GetViewMatrix();
-		//std::cout << glm::to_string(view) << std::endl;
 
 		shader.use();
 		shader.setMat4("projection", proj);
 		shader.setMat4("view", view);
 		shader.setMat4("model", modelLoc);
 
-		shader.setVec3("lightOneDir", glm::vec3(0.0f, 0.0f, -1.0f));
+		shader.setVec3("lightOneDir", glm::vec3(0.0f, -1.0f, 0.0f));
 		shader.setFloat("lightOneInten", 1.0f);
 
-		shader.setVec3("camLightDir", -camera.Direction());
+		shader.setVec3("camLightDir", camera.Direction());
 		shader.setFloat("camLightInten", 0.8f);
 
 		if (model)
