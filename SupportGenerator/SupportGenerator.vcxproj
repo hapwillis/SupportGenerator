@@ -22,7 +22,6 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DefaultShader.cpp" />
     <ClCompile Include="glad.c" />
-    <ClCompile Include="Heap.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Octree.cpp" />
@@ -31,7 +30,6 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DefaultShader.h" />
-    <ClInclude Include="Heap.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Octree.h" />
   </ItemGroup>

@@ -48,6 +48,8 @@ private:
 class Model
 {
 public:
+	float boundingRadius = 0.0;
+
 	Model(std::string &path);
 	
 	~Model();

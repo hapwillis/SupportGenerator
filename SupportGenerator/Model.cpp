@@ -62,6 +62,9 @@ void Model::Draw(DefaultShader shader)
 
 float Model::BoundingSphere()
 {
+	if (boundingRadius != 0.0) {
+		return boundingRadius;
+	}
 	// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
 	float maxX = 0, minX = 0;
 	float maxY = 0, minY = 0;
@@ -90,7 +93,9 @@ float Model::BoundingSphere()
 		}
 	}
 
-	return std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
+	boundingRadius = std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
+
+	return boundingRadius;
 }
 
 void Model::loadModel(std::string &path)
