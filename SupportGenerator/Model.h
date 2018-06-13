@@ -49,6 +49,10 @@ class Model
 {
 public:
 	float boundingRadius = 0.0;
+	/*  Model Data  */
+	std::vector<Mesh> meshes;
+	int vertices;
+	int faces;
 
 	Model(std::string &path);
 	
@@ -61,8 +65,6 @@ public:
 	float BoundingSphere(); //returns radius of bounding sphere
 
 private:
-	/*  Model Data  */
-	std::vector<Mesh> meshes;
 	std::string directory;
 
 	/*  Functions   */

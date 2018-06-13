@@ -39,47 +39,45 @@ struct Cell {
 	std::vector<Cell*> children;
 	bool filled;
 
-	Cell(glm::vec3 center, float range);
+	Cell(glm::vec3 c, float r);
 
 	~Cell();
 
-	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex> &vertices);
+	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex*> &vertices);
 
 	int findQuadrant(glm::vec3);
 
-	void add(glm::vec3 p, int index, std::vector<Vertex> &vertices);
+	void add(glm::vec3 p, int index, std::vector<Vertex*> &vertices);
 
 	void PopulateChildren(std::vector<Cell*> &children, glm::vec3 center, float r);
 
-	int findClosest(glm::vec3 p);
-
-	int searchAdjacent(glm::vec3 p);
+	Cell find(glm::vec3 p);
 };
 
 class Octree
 {
 public:
-	std::vector<Vertex> vertices;
+	std::vector<Vertex*> vertices;
 	std::vector<unsigned int> faces;
 	float range;
 	Cell *root;
 	FaceCell *faceRoot;
 	int max; 
 
-	Octree();
+	Octree(Model model);
 
 	~Octree();
 
-	void add();
+	void add(int index);
 
 	void addFace(int index);
 
-	void getNearest();
+	glm::vec3 getNearest(glm::vec3 p);
 
-	void findInRadius();
+	std::vector<int> findInRadius(glm::vec3 point, float radius, float minD);
 
 	// tests an octree of faces for intersection with a line segment
 	// faces stored by lowest index first
-	void intersects();
+	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd);
 };
 

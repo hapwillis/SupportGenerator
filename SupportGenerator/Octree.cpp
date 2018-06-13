@@ -120,7 +120,7 @@ FaceCell* FaceCell::populateChild(int i)
 	return new FaceCell(c, range / 2.0);
 }
 
-std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex> &vertices)
+std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex*> &vertices)
 {
 	if (range > radius * 4) {
 		return children[findQuadrant(point)]->getPoints(point, radius, minD, vertices);
@@ -135,7 +135,7 @@ std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std:
 
 			return verts;
 		} else {
-			float d = glm::distance(vertices[index].Position, point);
+			float d = glm::distance(vertices[index]->Position, point);
 			if (d <  radius && d > minD)
 				return std::vector<int>(1, index);
 			return std::vector<int>();
@@ -152,18 +152,18 @@ int Cell::findQuadrant(glm::vec3 p)
 	return i;
 }
 
-void Cell::add(glm::vec3 p, int pointIndex, std::vector<Vertex> &vertices)
+void Cell::add(glm::vec3 p, int pointIndex, std::vector<Vertex*> &vertices)
 {
 	if (filled) {
 		// check for children
 		if (children.size() < 1) {
 			// avoid duplicate entries
-			if (glm::all(glm::equal(vertices[index].Position, p))) {
+			if (glm::all(glm::equal(vertices[index]->Position, p))) {
 				children.reserve(8);
 				float r = range / 2.0;
 				PopulateChildren(children, center, r);
 
-				children[findQuadrant(p)]->add(vertices[index].Position, index, vertices);
+				children[findQuadrant(p)]->add(vertices[index]->Position, index, vertices);
 				children[findQuadrant(p)]->add(p, pointIndex, vertices);
 			}
 		} else {
@@ -171,6 +171,7 @@ void Cell::add(glm::vec3 p, int pointIndex, std::vector<Vertex> &vertices)
 		}
 	} else {
 		index = pointIndex;
+		filled = true;
 	}
 }
 
@@ -202,36 +203,19 @@ void Cell::PopulateChildren(std::vector<Cell*> &children, glm::vec3 center, floa
 	children[7] = new Cell(c, r);
 }
 
-int Cell::findClosest(glm::vec3 p)
+Cell Cell::find(glm::vec3 p)
 {
-	if (children.size() > 1) {
-		//Depth first search the correct octant first
-
-		// if above didn't return an index OR point's cell is adjacent
-		// call searchAdjacent on the adjacent octants
-		std::vector<int> verts;
-		for (Cell *c : children) {
-			std::vector<int> v = c->getPoints(point, radius, minD, vertices);
-			verts.insert(verts.end(), v.begin(), v.end());
+	int child = findQuadrant(p);
+	if (children[child]) {
+		if (children[child]->filled) {
+			if (children[child]->children.size() < 1) {
+				return *children[child];
+			}
+			return children[child]->find(p);
 		}
-
-		// return whichever is closest
-
-	} else {
-		// if this vert isn't the original, return it
-		float d = glm::distance(vertices[index].Position, point);
-		if (d <  radius && d > minD)
-			return std::vector<int>(1, index);
-		// otherwise return -1
-		return std::vector<int>();
 	}
-}
 
-int Cell::searchAdjacent(glm::vec3 p)
-{
-	// search the closest octant
-
-
+	return *(new Cell(center, range));
 }
 
 Cell::Cell(glm::vec3 c, float r) : center(c), range(r), filled(false)
@@ -246,9 +230,57 @@ Cell::~Cell()
 	}
 }
 
-Octree::Octree() 
+Octree::Octree(Model model) 
 {
-	
+	vertices.reserve(model.vertices);
+	faces.reserve(model.faces);
+
+	float maxX = 0, minX = 0;
+	float maxY = 0, minY = 0;
+	float maxZ = 0, minZ = 0;
+
+	int meshNum = model.meshes.size();
+	int vIndex = 0;
+	int fIndex = 0;
+	for (int i = 0; i < meshNum; i++) {
+		Mesh *mesh = &model.meshes[i];
+		//unsigned int size = mesh->vertices.size();
+		for (auto &v : mesh->vertices) {
+			vertices[vIndex] = &v;
+			add(vIndex);
+			vIndex++;
+			glm::vec3 *vert = &(v.Position);
+
+			if (vert->x > maxX)
+				maxX = vert->x;
+			if (vert->x < minX)
+				minX = vert->x;
+
+			if (vert->y > maxY)
+				maxY = vert->y;
+			if (vert->y < minY)
+				minY = vert->y;
+
+			if (vert->z > maxZ)
+				maxZ = vert->z;
+			if (vert->z < minZ)
+				minZ = vert->z;
+		}
+
+		int fSize = mesh->indices.size();
+		for (int j = 0; j < fSize; j +=3) {
+			faces[fIndex] = mesh->indices[j];
+			faces[fIndex + 1] = mesh->indices[j + 1];
+			faces[fIndex + 2] = mesh->indices[j + 2];
+
+			addFace(fIndex);
+			fIndex += 3;
+		}
+	}
+
+	range = std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
+	root = new Cell(glm::vec3(0.0, 0.0, 0.0), range);
+	faceRoot = new FaceCell(glm::vec3(0.0, 0.0, 0.0), range);
 }
 
 
@@ -258,17 +290,17 @@ Octree::~Octree()
 	delete faceRoot;
 }
 
-void Octree::add()
+void Octree::add(int index)
 {
-
+	root->add(vertices[index]->Position, index, vertices);
 }
 
 void Octree::addFace(int index) {
 	glm::vec3 vertex0, vertex1, vertex2, edge1, edge2, center;
 
-	glm::vec3 vertex0 = vertices[faces[index]].Position;
-	glm::vec3 vertex1 = vertices[faces[index + 1]].Position;
-	glm::vec3 vertex2 = vertices[faces[index + 2]].Position;
+	glm::vec3 vertex0 = vertices[faces[index]]->Position;
+	glm::vec3 vertex1 = vertices[faces[index + 1]]->Position;
+	glm::vec3 vertex2 = vertices[faces[index + 2]]->Position;
 
 	edge1 = vertex1 - vertex0;
 	edge2 = vertex2 - vertex0;
@@ -289,18 +321,45 @@ void Octree::addFace(int index) {
 	faceRoot->add(new Face(edge1, edge2, vertex0), center, doubleSize);
 }
 
-void Octree::getNearest()
+glm::vec3 Octree::getNearest(glm::vec3 p)
 {
-	
+	Cell leaf = root->find(p);
+	float r = leaf.range; 
+	glm::vec3 *p1;
+	glm::vec3 *p2;
+	float d1 = -1;
 
+	if (leaf.filled && leaf.children.size() < 1) {
+		glm::vec3 t = vertices[leaf.index]->Position;
+		if (glm::all(glm::equal(t, p))) {
+			p1 = &t;
+			d1 = glm::distance(t, p);
+		}
+	}
+
+	while (!p2) {
+		r *= 2.0;
+		std::vector<int> nearby = root->getPoints(p, r, 0.0, vertices);
+		for (int i : nearby) {
+			p2 = &vertices[i]->Position;
+			float d2 = glm::distance(*p2, p);
+			if (!p1 || d2 < d1) {
+				p1 = p2;
+				d1 = d2;
+			}
+		}
+	}
+
+	return *p1;
 }
 
-void Octree::findInRadius()
+std::vector<int> Octree::findInRadius(glm::vec3 point, float radius, float minD)
 {
-
+	return root->getPoints(point, radius, minD, vertices);
 }
 
-void Octree::intersects()
+bool Octree::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 {
-
+	float doubleSize = (2.0 * glm::distance(rayOrigin, rayEnd));
+	return faceRoot->intersects(rayOrigin, rayEnd, doubleSize);
 }

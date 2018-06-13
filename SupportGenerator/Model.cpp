@@ -72,8 +72,10 @@ float Model::BoundingSphere()
 
 	for (int i = 0; i < meshes.size(); i++) {
 		Mesh *mesh = &meshes[i];
+		faces += mesh->indices.size();
 		//unsigned int size = mesh->vertices.size();
 		for (Vertex v : mesh->vertices) {
+			vertices++;
 			glm::vec3 *vert = &(v.Position);
 
 			if (vert->x > maxX)
