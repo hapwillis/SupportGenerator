@@ -8,10 +8,11 @@
 
 #include <DefaultShader.h>
 #include <Octree.h>
-#include <Heap.h>
 
 #include <vector>
 #include <string>
+#include <unordered_set>
+#include <queue>
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -21,6 +22,9 @@ struct Vertex {
 	glm::vec3 Position;
 	// normal
 	glm::vec3 Normal;
+
+	Vertex();
+	Vertex(glm::vec3 p, glm::vec3 n);
 };
 
 class Mesh {
@@ -53,14 +57,13 @@ public:
 	std::vector<Mesh> meshes;
 	int vertices;
 	int faces;
+	Octree octree;
 
 	Model(std::string &path);
 	
 	~Model();
 
 	void Draw(DefaultShader shader);
-
-	Mesh NavMesh();
 
 	float BoundingSphere(); //returns radius of bounding sphere
 

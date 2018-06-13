@@ -230,20 +230,20 @@ Cell::~Cell()
 	}
 }
 
-Octree::Octree(Model model) 
+Octree::Octree(std::vector<Mesh> meshes, int vertNum, int faceNum)
 {
-	vertices.reserve(model.vertices);
-	faces.reserve(model.faces);
+	vertices.reserve(vertNum);
+	faces.reserve(faceNum);
 
 	float maxX = 0, minX = 0;
 	float maxY = 0, minY = 0;
 	float maxZ = 0, minZ = 0;
 
-	int meshNum = model.meshes.size();
+	int meshNum = meshes.size();
 	int vIndex = 0;
 	int fIndex = 0;
 	for (int i = 0; i < meshNum; i++) {
-		Mesh *mesh = &model.meshes[i];
+		Mesh *mesh = &meshes[i];
 		//unsigned int size = mesh->vertices.size();
 		for (auto &v : mesh->vertices) {
 			vertices[vIndex] = &v;

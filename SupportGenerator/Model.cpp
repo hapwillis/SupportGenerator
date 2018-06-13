@@ -1,5 +1,15 @@
 #include "Model.h"
 
+Vertex::Vertex()
+{
+
+}
+
+Vertex::Vertex(glm::vec3 p, glm::vec3 n) : Position(p), Normal(n)
+{
+
+}
+
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices)
 {
 	this->vertices = vertices;

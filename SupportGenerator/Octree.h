@@ -64,7 +64,7 @@ public:
 	FaceCell *faceRoot;
 	int max; 
 
-	Octree(Model model);
+	Octree(std::vector<Mesh> meshes, int vertNum, int faceNum);
 
 	~Octree();
 
@@ -81,3 +81,20 @@ public:
 	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd);
 };
 
+class Node
+{
+public:
+	int ID; //serial for each vertex added
+};
+
+class Graph
+{
+public:
+	std::vector<Node> nodes; //addressible by ID
+
+	Graph();
+
+	~Graph();
+
+	Node CombineNodes(Node n1, Node n2);
+};

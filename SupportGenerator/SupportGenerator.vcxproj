@@ -26,6 +26,7 @@
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Octree.cpp" />
     <ClCompile Include="placeSupportPoints.cpp" />
+    <ClCompile Include="BuildNavMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
