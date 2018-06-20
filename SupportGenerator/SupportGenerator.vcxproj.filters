@@ -36,7 +36,7 @@
     <ClCompile Include="DefaultShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BuildNavMesh.cpp">
+    <ClCompile Include="NavigationMesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -53,6 +53,9 @@
     <ClInclude Include="DefaultShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="NavigationMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="default.vs">
@@ -61,5 +64,6 @@
     <None Include="default.fs">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

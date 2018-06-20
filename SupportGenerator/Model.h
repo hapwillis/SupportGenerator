@@ -7,7 +7,6 @@
 #include <assimp/postprocess.h>
 
 #include <DefaultShader.h>
-#include <Octree.h>
 
 #include <vector>
 #include <string>
@@ -57,7 +56,6 @@ public:
 	std::vector<Mesh> meshes;
 	int vertices;
 	int faces;
-	Octree octree;
 
 	Model(std::string &path);
 	

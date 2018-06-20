@@ -1,5 +1,4 @@
 #include "Octree.h"
-#include <glm/gtx/intersect.hpp>
 
 Face::Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v) : edgeOne(e1), edgeTwo(e2), vertex(v)
 {
@@ -299,9 +298,9 @@ void Octree::add(int index)
 void Octree::addFace(int index) {
 	glm::vec3 vertex0, vertex1, vertex2, edge1, edge2, center;
 
-	glm::vec3 vertex0 = vertices[faces[index]]->Position;
-	glm::vec3 vertex1 = vertices[faces[index + 1]]->Position;
-	glm::vec3 vertex2 = vertices[faces[index + 2]]->Position;
+	vertex0 = vertices[faces[index]]->Position;
+	vertex1 = vertices[faces[index + 1]]->Position;
+	vertex2 = vertices[faces[index + 2]]->Position;
 
 	edge1 = vertex1 - vertex0;
 	edge2 = vertex2 - vertex0;
@@ -326,8 +325,8 @@ glm::vec3 Octree::getNearest(glm::vec3 p)
 {
 	Cell leaf = root->find(p);
 	float r = leaf.range; 
-	glm::vec3 *p1;
-	glm::vec3 *p2;
+	glm::vec3 *p1 = NULL;
+	glm::vec3 *p2 = NULL;
 	float d1 = -1;
 
 	if (leaf.filled && leaf.children.size() < 1) {
@@ -371,13 +370,25 @@ Node::Node(int index, glm::vec3 pos, glm::vec3 norm) :
 
 }
 
+void Node::addConnection(int index)
+{
+	connections.push_back(index);
+}
+
 Graph::Graph(Model model, float dist) : displacement(dist)
 {
 	modelRef = &model;
-	nodes.reserve(model.octree.vertices.size());
+	int vertNum = 0; 
+	int faceNum = 0;
+	for (Mesh mesh : model.meshes) {
+		vertNum += mesh.vertices.size();
+		faceNum += mesh.indices.size();
+	}
+	octree = new Octree(model.meshes, vertNum, faceNum);
+	nodes.reserve(octree->vertices.size());
 
 	int i = 0;
-	for (Vertex *v : model.octree.vertices) {
+	for (Vertex *v : octree->vertices) {
 		glm::vec3 pos = v->Position;
 		glm::vec3 norm = v->Normal;
 		pos += (norm * dist);
@@ -386,7 +397,7 @@ Graph::Graph(Model model, float dist) : displacement(dist)
 	}
 
 	// Populate every node with its connections:
-	std::vector<unsigned int> faces = model.octree.faces;
+	std::vector<unsigned int> faces = octree->faces;
 	int size = faces.size();
 	for (int i = 0; i < size; i += 3) {
 		int a = faces[i];
@@ -402,6 +413,18 @@ Graph::Graph(Model model, float dist) : displacement(dist)
 		nodes[c]->addConnection(a);
 		nodes[c]->addConnection(b);
 	}
+}
+
+Graph::Graph(std::vector<Node*> newNodes, float dist) : 
+	nodes(newNodes), displacement(dist)
+{
+	octree = NULL; // TODO: build octree
+	modelRef = NULL;
+}
+
+Graph::~Graph()
+{
+	delete(octree);
 }
 
 int Graph::CombineNodes(int n1, int n2)
@@ -443,11 +466,11 @@ int Graph::CombineNodes(int n1, int n2)
 	return index;
 }
 
-void Graph::ReduceFootprint()
+Graph* Graph::ReduceFootprint()
 {
 	std::vector<Node*> newNodes;
-	std::vector<int> translate;
-	translate.reserve(newNodes.size());
+	std::vector<int> translate; // on the theory that this is faster than a hashtable
+	translate.reserve(nodes.size());
 	int index = 0;
 
 	for (Node *n : nodes) {
@@ -460,24 +483,25 @@ void Graph::ReduceFootprint()
 		}
 	}
 
-	for (Node *n : newNodes) {
-		cleanConnections(n, translate);
-	}
+	cleanConnections(newNodes, translate);
+	return new Graph(newNodes, displacement);
 }
 
-void Graph::cleanConnections(Node *node, std::vector<int> &translate) {
-	std::unordered_set<int> connections;
+void Graph::cleanConnections(std::vector<Node*> nodeList, std::vector<int> &translate) {
+	for (int n = 0; n < nodeList.size(); n++) {
+		Node *node = new Node(n, nodeList[n]->position, nodeList[n]->normal);
 
-	for (int i : node->connections) {
-		if (nodes[i]) {
-			connections.insert(i);
+		std::unordered_set<int> connections; //might be faster to just sort/search the list
+		for (int i : nodeList[n]->connections) {
+			if (nodes[i]) {
+				connections.insert(i);
+			}
 		}
-	}
 
-	std::vector<int> newConnections;
-	for (int i : connections) {
-		newConnections.push_back(translate[i]);
-	}
+		for (int i : connections) {
+			node->addConnection(translate[i]);
+		}
 
-	node->connections = newConnections;
+		nodeList[n] = node;
+	}
 }

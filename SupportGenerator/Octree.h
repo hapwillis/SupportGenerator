@@ -1,7 +1,9 @@
 #pragma once
 #include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/intersect.hpp>
 
-#include <model.h>
+#include <model.h> //not including this?
 
 struct Face {
 	glm::vec3 edgeOne;
@@ -97,17 +99,19 @@ public:
 class Graph
 {
 public:
+	Octree *octree;
 	Model *modelRef;
 	float displacement;
 	std::vector<Node*> nodes; //addressible by ID
 
 	Graph(Model model, float dist);
+	Graph(std::vector<Node*> newNodes, float dist);
 
 	~Graph();
 
 	// Add new node to nodes, return index
 	// Delete and null pointers at n1 and n2
 	int CombineNodes(int n1, int n2);
-	void ReduceFootprint();
-	void cleanConnections(Node *node, std::vector<int> &translate);
+	Graph* ReduceFootprint();
+	void cleanConnections(std::vector<Node*>, std::vector<int> &translate);
 };

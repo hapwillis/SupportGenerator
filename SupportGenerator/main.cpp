@@ -8,7 +8,7 @@
 #include <DefaultShader.h>
 #include <Octree.h>
 #include <Model.h>
-#include <BuildNavMesh.cpp>
+#include <NavigationMesh.h>
 
 #include <iostream>
 
