@@ -1,11 +1,25 @@
 #include "Model.h"
 
 struct Edge {
+	unsigned int indexA;
+	unsigned int indexB;
+	float length;
+
+	Edge(int a, int b, float len) : indexA(a), indexB(b), length(len)
+	{
+
+	}
+};
+
+struct EdgeContainer {
+	unsigned int indexA;
+	unsigned int indexB;
 	glm::vec3 negVert;
 	glm::vec3 posVert;
 	float len;
 
-	Edge(glm::vec3 e1, glm::vec3 e2)
+	EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2) : 
+		indexA(a), indexB(b)
 	{
 		if (e1.x < e2.x) {
 			negVert = e1;
@@ -37,7 +51,7 @@ struct Edge {
 
 struct KeyFuncs
 {
-	size_t operator()(const Edge& e)const
+	size_t operator()(const EdgeContainer& e)const
 	{
 		std::string s("");
 		glm::vec3 n = e.negVert;
@@ -52,7 +66,7 @@ struct KeyFuncs
 		return std::hash<std::string>()(s);
 	}
 
-	bool operator()(const Edge& a, const Edge& b)const
+	bool operator()(const EdgeContainer& a, const EdgeContainer& b)const
 	{
 		bool v1 = glm::all(glm::equal(a.negVert, b.negVert));
 		bool v2 = glm::all(glm::equal(a.posVert, b.posVert));
@@ -60,69 +74,115 @@ struct KeyFuncs
 	}
 };
 
-bool operator<(const Edge& a, const Edge& b)
+bool operator<(const EdgeContainer& a, const EdgeContainer& b)
 {
 	return a.len < b.len;
 }
 
-void BuildNavMesh(Model model, float dist)
+bool operator<(const Edge& a, const Edge& b)
 {
-	Mesh navMesh = InitNavMesh(model, dist);
-
-	navMesh = decimateMesh(navMesh);
+	return a.length < b.length;
 }
 
-Mesh InitNavMesh(Model model, float dist) 
+std::vector<glm::vec3> BuildNavGraph(Model &model, float dist)
 {
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> faces;
-	vertices.reserve(model.octree.vertices.size());
+	Graph modelGraph(model, dist);
 
-	//TODO: remove vertices at z = 0
+	modelGraph = decimateMesh(modelGraph);
 
-	int i = 0;
-	for (int index : model.octree.faces) {
-		faces[i] = index;
-		i++;
-	}
-
-	i = 0;
-	for (Vertex *v : model.octree.vertices) {
-		glm::vec3 pos = v->Position;
-		glm::vec3 norm = v->Normal;
-		pos += (norm * dist);
-		vertices[i] = Vertex(pos, norm);
-		i++;
-	}
-
-	return Mesh(vertices, faces);
+	// Better to convert these to an indexed mesh, but lines are easy
+	return convertToLines(modelGraph);
 }
 
-Mesh decimateMesh(Mesh navMesh)
+void initializeHeap(Graph &modelGraph, std::priority_queue<Edge> &edgeHeap)
 {
-	std::unordered_set<Edge, KeyFuncs, KeyFuncs> edges;
+	std::unordered_set<EdgeContainer, KeyFuncs, KeyFuncs> edges;
 
-	// construct Graph
-	int indices = navMesh.indices.size();
+	// Get initial edges from faces
+	// Insert into unordered set to remove duplicates
+	int indices = modelGraph.modelRef->octree.faces.size();
+	std::vector<unsigned int> faces = modelGraph.modelRef->octree.faces;
 	for (int i = 0; i < indices; i += 3) {
-		glm::vec3 v1 = navMesh.vertices[i].Position;
-		glm::vec3 v2 = navMesh.vertices[i + 1].Position;
-		glm::vec3 v3 = navMesh.vertices[i + 2].Position;
-		edges.insert(Edge(v1, v2));
-		edges.insert(Edge(v2, v3));
-		edges.insert(Edge(v3, v1));
+		glm::vec3 a = modelGraph.nodes[faces[i]]->position;
+		glm::vec3 b = modelGraph.nodes[faces[i + 1]]->position;
+		glm::vec3 c = modelGraph.nodes[faces[i + 2]]->position;
+		edges.insert(EdgeContainer(faces[i], faces[i + 1], a, b));
+		edges.insert(EdgeContainer(faces[i + 1], faces[i + 2], b, c));
+		edges.insert(EdgeContainer(faces[i + 2], faces[i], c, a));
 	}
 
-	// Insert all edges in graph to the heap
-	std::priority_queue <Edge> edgeHeap;
-	for (const Edge &edge : edges) {
-		edgeHeap.push(edge);
+	// Insert the unique edges to a heap
+	for (const EdgeContainer &e : edges) {
+		edgeHeap.push(Edge(e.indexA, e.indexB, e.len));
 	}
+}
+
+bool edgeValid(Edge edge, Graph modelGraph)
+{
+	return modelGraph.nodes[edge.indexA] && modelGraph.nodes[edge.indexA];
+}
+
+Graph decimateMesh(Graph modelGraph)
+{
+	// TODO: write custom heap that uses pointers
+	std::priority_queue<Edge> edgeHeap;
+	initializeHeap(modelGraph, edgeHeap);
+
+	std::vector<Node*> nodes = modelGraph.nodes;
 
 	//for the number of verts to be removed:
-	//	edgeHeap.pop() until you get a valid edge
+	const float decimationLevel = .0001;
+	const int toRemove = std::floor((1 - decimationLevel) * modelGraph.nodes.size());
+	for (int i = 0; i < toRemove; i++) {
+		//	pop() until you get a valid edge (ie both vertices exist)
+		if (!edgeHeap.empty()) {
+			Edge e = edgeHeap.top(); 
+			edgeHeap.pop();
+			while(!edgeValid(e, modelGraph) && !edgeHeap.empty()) {
+				e = edgeHeap.top();
+				edgeHeap.pop();
+			}
 
-	//	call graph.combine()
-	//	add all the new edges to the heap
-	// delete the old two vertices
+			int newIndex = modelGraph.CombineNodes(e.indexA, e.indexB);
+			glm::vec3 a = modelGraph.nodes[newIndex]->position;
+
+			//	add all the new edges to the minheap
+			for (int connection : modelGraph.nodes[newIndex]->connections) {
+				glm::vec3 b = modelGraph.nodes[connection]->position;
+				float length = glm::distance(a, b);
+
+				edgeHeap.push(Edge(newIndex, connection, length));
+			}
+		}
+	}
+	
+	return modelGraph;
+}
+
+std::vector<glm::vec3> convertToLines(Graph &modelGraph)
+{
+	modelGraph.ReduceFootprint();
+	std::vector<std::unordered_set<int>> lines;
+	lines.reserve(modelGraph.nodes.size());
+
+	for (int i = 0; i < modelGraph.nodes.size(); i++) {
+		Node *node = modelGraph.nodes[i];
+		for (int j : node->connections) {
+			if (i < j) {
+				lines[i].insert(j);
+			} else {
+				lines[j].insert(i);
+			}
+		}
+	}
+
+	std::vector<glm::vec3> lineVertices;
+	for (int i = 0; i < lines.size(); i++) {
+		for (int j : lines[i]) {
+			lineVertices.push_back(modelGraph.nodes[i]->position);
+			lineVertices.push_back(modelGraph.nodes[j]->position);
+		}
+	}
+
+	return lineVertices;
 }

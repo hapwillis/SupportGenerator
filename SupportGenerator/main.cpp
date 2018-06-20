@@ -7,8 +7,8 @@
 #include <Camera.h>
 #include <DefaultShader.h>
 #include <Octree.h>
-#include <Heap.h>
 #include <Model.h>
+#include <BuildNavMesh.cpp>
 
 #include <iostream>
 
@@ -30,6 +30,7 @@ int scrHeight = SCR_HEIGHT;
 
 // Model
 Model* model = {0};
+std::vector<glm::vec3> *navMesh = { 0 };
 
 int main()
 {
@@ -138,6 +139,10 @@ int main()
 		if (model)
 			model->Draw(shader);
 
+		if (navMesh) {
+			// TODO: render lines
+		}
+
 		// get matrix's uniform location and set matrix
 
 		//glBindVertexArray(VAO);
@@ -164,6 +169,11 @@ void processInput(GLFWwindow *window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+		navMesh = &BuildNavGraph(*model, 0.1f);
+		// TODO: initialize + load lines
+	}
 
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);

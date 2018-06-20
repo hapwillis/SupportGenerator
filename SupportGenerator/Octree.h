@@ -85,16 +85,29 @@ class Node
 {
 public:
 	int ID; //serial for each vertex added
+	glm::vec3 position;
+	glm::vec3 normal;
+	std::vector<int> connections;
+
+	Node(int index, glm::vec3 pos, glm::vec3 norm);
+
+	void addConnection(int index);
 };
 
 class Graph
 {
 public:
-	std::vector<Node> nodes; //addressible by ID
+	Model *modelRef;
+	float displacement;
+	std::vector<Node*> nodes; //addressible by ID
 
-	Graph();
+	Graph(Model model, float dist);
 
 	~Graph();
 
-	Node CombineNodes(Node n1, Node n2);
+	// Add new node to nodes, return index
+	// Delete and null pointers at n1 and n2
+	int CombineNodes(int n1, int n2);
+	void ReduceFootprint();
+	void cleanConnections(Node *node, std::vector<int> &translate);
 };

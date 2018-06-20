@@ -1,4 +1,5 @@
 #include "Octree.h"
+#include <glm/gtx/intersect.hpp>
 
 Face::Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v) : edgeOne(e1), edgeTwo(e2), vertex(v)
 {
@@ -362,4 +363,121 @@ bool Octree::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 {
 	float doubleSize = (2.0 * glm::distance(rayOrigin, rayEnd));
 	return faceRoot->intersects(rayOrigin, rayEnd, doubleSize);
+}
+
+Node::Node(int index, glm::vec3 pos, glm::vec3 norm) : 
+	ID(index), position(pos), normal(norm)
+{
+
+}
+
+Graph::Graph(Model model, float dist) : displacement(dist)
+{
+	modelRef = &model;
+	nodes.reserve(model.octree.vertices.size());
+
+	int i = 0;
+	for (Vertex *v : model.octree.vertices) {
+		glm::vec3 pos = v->Position;
+		glm::vec3 norm = v->Normal;
+		pos += (norm * dist);
+		nodes[i] = new Node(i, pos, norm);
+		i++;
+	}
+
+	// Populate every node with its connections:
+	std::vector<unsigned int> faces = model.octree.faces;
+	int size = faces.size();
+	for (int i = 0; i < size; i += 3) {
+		int a = faces[i];
+		int b = faces[i + 1];
+		int c = faces[i + 2];
+
+		nodes[a]->addConnection(b);
+		nodes[a]->addConnection(c);
+
+		nodes[b]->addConnection(a);
+		nodes[b]->addConnection(c);
+
+		nodes[c]->addConnection(a);
+		nodes[c]->addConnection(b);
+	}
+}
+
+int Graph::CombineNodes(int n1, int n2)
+{
+	glm::vec3 pos = (nodes[n1]->position + nodes[n2]->position);
+	pos *= 0.5;
+	glm::vec3 norm = (nodes[n1]->normal + nodes[n2]->normal);
+	norm *= 0.5;
+	float distance;
+
+	glm::intersectRayPlane(pos, norm, nodes[n1]->position, nodes[n1]->normal, distance);
+	if (distance > 0.0) {
+		pos += norm * distance;
+	}
+	
+	int index = nodes.size();
+	Node *node = new Node(index, pos, norm);
+	nodes.push_back(node);
+
+	std::unordered_set<int> connections;
+	for (int i : nodes[n1]->connections) {
+		if (nodes[i]) {
+			connections.insert(i);
+		}
+	}
+	for (int i : nodes[n2]->connections) {
+		if (nodes[i]) {
+			connections.insert(i);
+		}
+	}
+	for (int i : connections) {
+		node->connections.push_back(i);
+	}
+
+	delete(nodes[n1]);
+	nodes[n1] = NULL;
+	delete(nodes[n2]);
+	nodes[n2] = NULL;
+	return index;
+}
+
+void Graph::ReduceFootprint()
+{
+	std::vector<Node*> newNodes;
+	std::vector<int> translate;
+	translate.reserve(newNodes.size());
+	int index = 0;
+
+	for (Node *n : nodes) {
+		if (n) {
+			newNodes.push_back(n);
+			translate.push_back(index);
+			index++;
+		} else {
+			translate.push_back(-1);
+		}
+	}
+
+	for (Node *n : newNodes) {
+		cleanConnections(n, translate);
+	}
+}
+
+void Graph::cleanConnections(Node *node, std::vector<int> &translate) {
+	std::unordered_set<int> connections;
+
+	for (int i : node->connections) {
+		if (nodes[i]) {
+			connections.insert(i);
+		}
+	}
+
+	std::vector<int> newConnections;
+	for (int i : connections) {
+		newConnections.push_back(translate[i]);
+	}
+
+	node->connections = newConnections;
 }
