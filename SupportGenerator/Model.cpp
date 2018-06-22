@@ -113,9 +113,25 @@ float Model::BoundingSphere()
 void Model::loadModel(std::string &path)
 {
 	// Loading time for AssImp: .067 seconds
+	float time = glfwGetTime();
 	Assimp::Importer import;
 	// aiProcess_GenNormals to create normals
-	const aiScene *scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+	import.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, 
+		aiComponent_TANGENTS_AND_BITANGENTS	|
+		aiComponent_COLORS					|
+		aiComponent_TEXCOORDS				|
+		aiComponent_BONEWEIGHTS				|
+		aiComponent_ANIMATIONS				|
+		aiComponent_TEXTURES				|
+		aiComponent_CAMERAS					|
+		aiComponent_LIGHTS					|
+		aiComponent_MATERIALS);
+
+	// Adding aiProcess_JoinIdenticalVertices increases load time by 5.8 seconds.
+	const aiScene *scene = import.ReadFile(path, 
+		aiProcess_Triangulate			| 
+		aiProcess_RemoveComponent		|
+		aiProcess_FlipUVs);
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
@@ -124,8 +140,9 @@ void Model::loadModel(std::string &path)
 	}
 	directory = path.substr(0, path.find_last_of('/'));
 
-	// Time for processNode: .52 seconds
-	float time = glfwGetTime();
+	std::cout << "Time to load: " << glfwGetTime() - time << std::endl;
+	// Time for processNode: 0.058 seconds
+	time = glfwGetTime();
 	processNode(scene->mRootNode, scene);
 	std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
 }

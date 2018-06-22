@@ -20,6 +20,15 @@ struct EdgeContainer {
 	EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2);
 };
 
+struct EdgeSet {
+	std::unordered_multimap<float, EdgeContainer*> edgeMap;
+	std::vector<EdgeContainer*> edges;
+
+	~EdgeSet();
+
+	void insert(EdgeContainer *e1);
+};
+
 struct KeyFuncs
 {
 	size_t operator()(const EdgeContainer& e)const;
@@ -43,10 +52,14 @@ public:
 	~NavigationMesh();
 
 	bool loadModel(Model &model, float dist);
-	void initializeHeap();
-	Graph* decimateMesh();
-	Mesh* convertToMesh(Graph *graph);
-	bool edgeValid(Edge edge, Graph *graph);
 	void Draw(DefaultShader shader);
+	Mesh* convertToMesh(Graph *graph);
+
+private:
+	void initializeHeap();
+	void getUniqueEdges(std::priority_queue<Edge> &edgeHeap);
+	Graph* decimateMesh();
+	void windFaces(std::vector<Node*> &nodes, std::vector<unsigned int> &indices);
+	bool edgeValid(Edge edge, Graph *graph);
 };
 

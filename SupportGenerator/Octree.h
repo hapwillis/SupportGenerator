@@ -3,7 +3,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/intersect.hpp>
 
-#include <model.h> //not including this?
+#include <model.h> 
+
+#include <unordered_map>
 
 struct Face {
 	glm::vec3 edgeOne;
@@ -37,19 +39,24 @@ struct FaceCell {
 struct Cell {
 	glm::vec3 center;
 	float range;
-	int index; // index of a point or a face (first of three indices)
 	std::vector<Cell*> children;
+	std::vector<int> points; //indices of points or faces (first of three indices)
 	bool filled;
+	const unsigned int max = 8;
 
 	Cell(glm::vec3 c, float r);
 
 	~Cell();
 
-	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex*> &vertices);
+	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex> &vertices);
 
-	int findQuadrant(glm::vec3);
+	int findOctant(glm::vec3);
 
-	void add(glm::vec3 p, int index, std::vector<Vertex*> &vertices);
+	void add(glm::vec3 p, int index, std::vector<Vertex> &vertices);
+
+	void split(std::vector<Vertex> &vertices);
+
+	bool pointsNotEqual(glm::vec3 p, glm::vec3 q);
 
 	void PopulateChildren(std::vector<Cell*> &children, glm::vec3 center, float r);
 
@@ -59,18 +66,25 @@ struct Cell {
 class Octree
 {
 public:
-	std::vector<Vertex*> vertices;
+	std::vector<Vertex> vertices;
 	std::vector<unsigned int> faces;
 	float range;
 	Cell *root;
 	FaceCell *faceRoot;
 	int max; 
 
-	Octree(std::vector<Mesh> meshes, int vertNum, int faceNum);
+	Octree(std::vector<Mesh> &meshes);
 
 	~Octree();
 
-	void add(int index);
+	void removeDuplicateVertices(std::vector<Mesh> &meshes);
+	std::vector<int> constructUniqueVertices(int size, std::vector<Mesh> &meshes);
+	void removeDuplicateFaces();
+
+	void getRange();
+	void oldGetRange();
+
+	void addVertex(int index);
 
 	void addFace(int index);
 
@@ -113,5 +127,5 @@ public:
 	// Delete and null pointers at n1 and n2
 	int CombineNodes(int n1, int n2);
 	Graph* ReduceFootprint();
-	void cleanConnections(std::vector<Node*>, std::vector<int> &translate);
+	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
 };

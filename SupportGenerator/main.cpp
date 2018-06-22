@@ -30,7 +30,7 @@ int scrHeight = SCR_HEIGHT;
 
 // Model
 Model* model = {0};
-std::vector<glm::vec3> *navMesh = { 0 };
+NavigationMesh *navMesh = { 0 };
 
 int main()
 {
@@ -139,9 +139,8 @@ int main()
 		if (model)
 			model->Draw(shader);
 
-		if (navMesh) {
-			// TODO: render lines
-		}
+		if (navMesh)
+			navMesh->Draw(shader); // access violation
 
 		// get matrix's uniform location and set matrix
 
@@ -171,8 +170,10 @@ void processInput(GLFWwindow *window)
 		glfwSetWindowShouldClose(window, true);
 
 	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-		navMesh = &BuildNavGraph(*model, 0.1f);
-		// TODO: initialize + load lines
+		if (navMesh)
+			delete(navMesh);
+		navMesh = new NavigationMesh();
+		navMesh->loadModel(*model, 1.0f);
 	}
 
 	double xpos, ypos;
