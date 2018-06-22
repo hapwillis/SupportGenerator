@@ -22,6 +22,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 const float FOV = glm::radians(45.0f);
+const float SupportOffset = 2.0f;
+const float SupportWidth = 5.0f;
 
 // camera
 Camera camera(FOV, SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0f, 0.0f, 3.0f));
@@ -173,7 +175,7 @@ void processInput(GLFWwindow *window)
 		if (navMesh)
 			delete(navMesh);
 		navMesh = new NavigationMesh();
-		navMesh->loadModel(*model, 1.0f);
+		navMesh->loadModel(*model, SupportOffset, SupportWidth);
 	}
 
 	double xpos, ypos;
@@ -223,8 +225,13 @@ void drop_callback(GLFWwindow* window, int count, const char** paths)
 		std::cout << "file detected" << std::endl;
 
 	std::string p(paths[0]);
-	if (model)
+	if (model) {
 		delete model;
+		if (navMesh) {
+			delete(navMesh);
+			navMesh = NULL;
+		}
+	}
 
 	model = new Model(p);
 	camera.TargetModel(model);

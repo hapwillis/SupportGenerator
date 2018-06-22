@@ -115,8 +115,8 @@ void Model::loadModel(std::string &path)
 	// Loading time for AssImp: .067 seconds
 	float time = glfwGetTime();
 	Assimp::Importer import;
-	// aiProcess_GenNormals to create normals
 	import.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, 
+		//aiComponent_NORMALS					|
 		aiComponent_TANGENTS_AND_BITANGENTS	|
 		aiComponent_COLORS					|
 		aiComponent_TEXCOORDS				|
@@ -129,6 +129,7 @@ void Model::loadModel(std::string &path)
 
 	// Adding aiProcess_JoinIdenticalVertices increases load time by 5.8 seconds.
 	const aiScene *scene = import.ReadFile(path, 
+		//aiProcess_GenNormals			|
 		aiProcess_Triangulate			| 
 		aiProcess_RemoveComponent		|
 		aiProcess_FlipUVs);

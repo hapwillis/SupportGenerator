@@ -42,6 +42,7 @@ public:
 	unsigned int VAO, VBO, EBO;
 	Model *model = NULL; 
 	float displacement;
+	float supportWidth;
 	Graph *modelGraph = NULL;
 	std::priority_queue<Edge> edgeHeap;
 	Octree *octree = NULL;
@@ -51,7 +52,7 @@ public:
 	NavigationMesh();
 	~NavigationMesh();
 
-	bool loadModel(Model &model, float dist);
+	bool loadModel(Model &model, float offset, float width);
 	void Draw(DefaultShader shader);
 	Mesh* convertToMesh(Graph *graph);
 

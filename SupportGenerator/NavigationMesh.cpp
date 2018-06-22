@@ -116,14 +116,15 @@ NavigationMesh::~NavigationMesh()
 
 }
 
-bool NavigationMesh::loadModel(Model &newModel, float dist) 
+bool NavigationMesh::loadModel(Model &newModel, float offset, float width) 
 {
-	if (model != &newModel || displacement != dist) {
+	if (model != &newModel || displacement != offset + (width / 2.0) || supportWidth  != width) {
 		model = &newModel;
-		displacement = dist;
+		displacement = offset + (width / 2.0);
+		supportWidth = width;
 		float time = glfwGetTime();
 		// 27.6864 seconds to build graph
-		modelGraph = new Graph(*model, dist);
+		modelGraph = new Graph(*model, offset + (width / 2.0));
 		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 		time = glfwGetTime();
 
@@ -193,38 +194,33 @@ Graph* NavigationMesh::decimateMesh()
 {
 	initializeHeap(); // TODO: write custom heap that uses pointers
 
-	//for the number of verts to be removed:
-	const float decimationLevel = .0001;
-	const int toRemove = std::floor((1 - decimationLevel) * modelGraph->nodes.size());
-	for (int i = 0; i < toRemove; i++) {
+	float smallestEdge = supportWidth + 1.0;
+	while (!edgeHeap.empty() && smallestEdge < supportWidth) {
 		//	pop() until you get a valid edge (ie both vertices exist)
-		if (!edgeHeap.empty()) {
-			Edge e = edgeHeap.top();
+		Edge e = edgeHeap.top();
+		edgeHeap.pop();
+		while (!edgeValid(e, modelGraph) && !edgeHeap.empty()) {
+			e = edgeHeap.top();
 			edgeHeap.pop();
-			while (!edgeValid(e, modelGraph) && !edgeHeap.empty()) {
-				e = edgeHeap.top();
-				edgeHeap.pop();
-			}
+		}
+		smallestEdge = e.length;
 
-			int newIndex = modelGraph->CombineNodes(e.indexA, e.indexB);
-			glm::vec3 a = modelGraph->nodes[newIndex]->position;
+		int newIndex = modelGraph->CombineNodes(e.indexA, e.indexB);
+		glm::vec3 a = modelGraph->nodes[newIndex]->position;
 
-			//	add all the new edges to the minheap
-			for (int connection : modelGraph->nodes[newIndex]->connections) {
-				Node *node = modelGraph->nodes[connection];
-				if (node) {
-					glm::vec3 b = node->position;
-					float length = glm::distance(a, b);
-
-					edgeHeap.push(Edge(newIndex, connection, length));
-				}
+		//	add all the new edges to the minheap
+		for (int connection : modelGraph->nodes[newIndex]->connections) {
+			Node *node = modelGraph->nodes[connection];
+			if (node) {
+				glm::vec3 b = node->position;
+				float length = glm::distance(a, b);
+		
+				edgeHeap.push(Edge(newIndex, connection, length));
 			}
 		}
-	}
+	} 
 
-	Graph* g = modelGraph->ReduceFootprint();
-
-	return g;
+	return modelGraph->ReduceFootprint();
 }
 
 Mesh* NavigationMesh::convertToMesh(Graph *graph)
