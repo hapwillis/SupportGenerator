@@ -120,17 +120,18 @@ bool NavigationMesh::loadModel(Model &newModel, float offset, float width)
 {
 	if (model != &newModel || displacement != offset + (width / 2.0) || supportWidth  != width) {
 		model = &newModel;
-		displacement = offset + (width / 2.0);
+		displacement = offset + (width * 0.5);
 		supportWidth = width;
 		float time = glfwGetTime();
 		// 27.6864 seconds to build graph
-		modelGraph = new Graph(*model, offset + (width / 2.0));
+		modelGraph = new Graph(*model);
 		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 		time = glfwGetTime();
 
 		// 57.52 seconds to run decimateMesh
 		navGraph = decimateMesh();
 		std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
+		navGraph->scale(offset);
 		time = glfwGetTime();
 
 		navMesh = convertToMesh(navGraph);
@@ -194,8 +195,9 @@ Graph* NavigationMesh::decimateMesh()
 {
 	initializeHeap(); // TODO: write custom heap that uses pointers
 
-	float smallestEdge = supportWidth + 1.0;
-	while (!edgeHeap.empty() && smallestEdge < supportWidth) {
+	float minLength = supportWidth * 0.25;
+	float smallestEdge = minLength - 1.0;
+	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge e = edgeHeap.top();
 		edgeHeap.pop();
@@ -219,7 +221,6 @@ Graph* NavigationMesh::decimateMesh()
 			}
 		}
 	} 
-
 	return modelGraph->ReduceFootprint();
 }
 
@@ -232,7 +233,8 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph)
 	}
 
 	std::vector<unsigned int> indices;
-	windFaces(graph->nodes, indices);
+	//windFaces(graph->nodes, indices);
+	facesToIndices(graph, indices);
 
 	return new Mesh(vertices, indices);
 }
@@ -260,6 +262,20 @@ void NavigationMesh::windFaces(std::vector<Node*> &nodes, std::vector<unsigned i
 			}
 		}
 	}		
+}
+
+void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)
+{
+	int size = graph->nodes.size();
+	for (int i = 0; i < size; i++) {
+		Node *node = graph->nodes[i];
+		for (int f : node->connections) {
+			Face *face = graph->faceVector[f];
+			indices.push_back(face->v1);
+			indices.push_back(face->v2);
+			indices.push_back(face->v3);
+		}
+	}
 }
 
 bool NavigationMesh::edgeValid(Edge edge, Graph *graph)

@@ -6,14 +6,34 @@
 #include <model.h> 
 
 #include <unordered_map>
+#include <unordered_set>
+
+struct ordered_set {
+	std::unordered_set<int> set;
+	std::vector<int> vector;
+
+	void insert(int);
+	int size();
+	int popFromSet();
+	int pop();
+};
+
+class Node;
 
 struct Face {
+	const float EPSILON = 0.0000001;
 	glm::vec3 edgeOne;
 	glm::vec3 edgeTwo;
 	glm::vec3 vertex;
+	glm::vec3 normal;
+	int v1 = -1; 
+	int v2 = -1;
+	int v3 = -1;
 
 	Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v);
+	Face(int v1, int v2, int v3, std::vector<Vertex> &vertices);
 
+	void update(const std::vector<Node*> &nodes);
 	bool MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd);
 };
 
@@ -104,10 +124,12 @@ public:
 	glm::vec3 position;
 	glm::vec3 normal;
 	std::vector<int> connections;
+	std::unordered_set<int> faces;
 
 	Node(int index, glm::vec3 pos, glm::vec3 norm);
 
 	void addConnection(int index);
+	void addFace(int face);
 };
 
 class Graph
@@ -115,17 +137,28 @@ class Graph
 public:
 	Octree *octree;
 	Model *modelRef;
-	float displacement;
 	std::vector<Node*> nodes; //addressible by ID
+	std::vector<Face*> faceVector;
 
-	Graph(Model model, float dist);
-	Graph(std::vector<Node*> newNodes, float dist);
+	Graph(Model model);
+	Graph(std::vector<Node*> newNodes, std::vector<Face*> faces);
 
 	~Graph();
 
-	// Add new node to nodes, return index
-	// Delete and null pointers at n1 and n2
+	void populateFaces();
+	void populateConnections(std::vector<ordered_set> &connections);
+	void addConnections(std::vector<ordered_set> connections);
+	void orderConnections(std::vector<ordered_set> connections);
+	void recalculateNormals();
+	void recalculateNormalsFromFaces();
+	void recalculateNormalsFaceWeight();
+	void scale(float displacement);
 	int CombineNodes(int n1, int n2);
+	void CombineConnections(int n1, int n2, Node *node);
+	void CombineFaces(int n1, int n2, Node *node);
+	Node* nodeFromAverage(Node* n1, Node* n2);
+	Node* nodeFromIntercept(Node* n1, Node* n2);
+	Node* nodeFromPreservedEdges(Node* n1, Node* n2);
 	Graph* ReduceFootprint();
 	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
 };

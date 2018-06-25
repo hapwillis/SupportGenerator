@@ -26,9 +26,9 @@ const float SupportOffset = 2.0f;
 const float SupportWidth = 5.0f;
 
 // camera
-Camera camera(FOV, SCR_WIDTH, SCR_HEIGHT, glm::vec3(0.0f, 0.0f, 3.0f));
 int scrWidth = SCR_WIDTH;
 int scrHeight = SCR_HEIGHT;
+Camera camera(FOV, scrWidth, scrHeight, glm::vec3(0.0f, 0.0f, 3.0f));
 
 // Model
 Model* model = {0};
@@ -49,7 +49,7 @@ int main()
 
 	// glfw window creation
 	// --------------------
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "LearnOpenGL", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -122,7 +122,7 @@ int main()
 		glm::mat4 proj;
 		// Convert to right-handed space (z is not up)
 		modelLoc = glm::rotate(modelLoc, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		proj = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
+		proj = glm::perspective(glm::radians(45.0f), (float)scrWidth / (float)scrHeight, 0.1f, 1000.0f);
 
 		// camera/view transformation
 		glm::mat4 view = camera.GetViewMatrix();
@@ -142,7 +142,7 @@ int main()
 			model->Draw(shader);
 
 		if (navMesh)
-			navMesh->Draw(shader); // access violation
+			navMesh->Draw(shader); 
 
 		// get matrix's uniform location and set matrix
 

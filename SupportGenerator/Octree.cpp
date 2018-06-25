@@ -1,13 +1,60 @@
 #include "Octree.h"
 
+void ordered_set::insert(int i) {
+	if (set.count(i) == 0) {
+		set.insert(i);
+		vector.push_back(i);
+	}
+}
+
+int ordered_set::size()
+{
+	return vector.size();
+}
+
+int ordered_set::popFromSet()
+{
+	for (int t : vector) {
+		if (set.count(t) == 1) {
+			set.erase(t);
+			return t;
+		}
+	}
+	return -1;
+}
+
+int ordered_set::pop()
+{
+	int t = vector[0];
+	set.erase(t);
+	return t;
+}
+
 Face::Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v) : edgeOne(e1), edgeTwo(e2), vertex(v)
 {
+	normal = glm::cross(glm::normalize(e1), glm::normalize(e2));
+}
 
+Face::Face(int v1, int v2, int v3, std::vector<Vertex> &vertices) : v1(v1), v2(v2), v3(v3)
+{
+	edgeOne = vertices[v2].Position - vertices[v1].Position;
+	edgeTwo = vertices[v3].Position - vertices[v1].Position;
+	vertex = vertices[v1].Position;
+
+	normal = glm::cross(glm::normalize(edgeOne), glm::normalize(edgeTwo));
+}
+
+void Face::update(const std::vector<Node*> &nodes)
+{
+	edgeOne = nodes[v2]->position - nodes[v1]->position;
+	edgeTwo = nodes[v3]->position - nodes[v1]->position;
+	vertex = nodes[v1]->position;
+
+	normal = glm::cross(glm::normalize(edgeOne), glm::normalize(edgeTwo));
 }
 
 bool Face::MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 {
-	const float EPSILON = 0.0000001;
 	glm::vec3 h, s, q;
 	float a, f, u, v;
 	glm::vec3 rayVector = glm::normalize(rayEnd - rayOrigin);
@@ -267,18 +314,20 @@ Cell::~Cell()
 
 Octree::Octree(std::vector<Mesh> &meshes)
 {
-	std::cout << "Constructing Octree." << std::endl;
 	float time = glfwGetTime();
 	//0.131 seconds to remove vertices
 	removeDuplicateVertices(meshes);
 	std::cout << "Time to remove verts: " << glfwGetTime() - time << std::endl;
+	
 	time = glfwGetTime();
 	//0.045 seconds to remove faces
 	removeDuplicateFaces();
 	std::cout << "Time to remove faces: " << glfwGetTime() - time << std::endl;
+
 	time = glfwGetTime();
 	getRange();
 	std::cout << "Time to get range: " << glfwGetTime() - time << std::endl;
+
 	root = new Cell(glm::vec3(0.0, 0.0, 0.0), range);
 	faceRoot = new FaceCell(glm::vec3(0.0, 0.0, 0.0), range);
 
@@ -289,8 +338,10 @@ Octree::Octree(std::vector<Mesh> &meshes)
 		addVertex(i);
 	}
 	std::cout << "Time to insert vertices: " << glfwGetTime() - time << std::endl;
+
 	time = glfwGetTime();
 	for (int i = 0; i < faces.size(); i += 3) {
+		//TODO: add faces
 		//addFace(i);
 	}
 	std::cout << "Time to insert faces: " << glfwGetTime() - time << std::endl;
@@ -535,7 +586,12 @@ void Node::addConnection(int index)
 	connections.push_back(index);
 }
 
-Graph::Graph(Model model, float dist) : displacement(dist)
+void Node::addFace(int face)
+{
+	faces.insert(face);
+}
+
+Graph::Graph(Model model)
 {
 	modelRef = &model;
 	octree = new Octree(model.meshes);
@@ -543,17 +599,56 @@ Graph::Graph(Model model, float dist) : displacement(dist)
 
 	int i = 0;
 	for (Vertex &v : octree->vertices) {
-		glm::vec3 pos = v.Position;
-		glm::vec3 norm = v.Normal;
-		pos += (norm * dist);
-		nodes.push_back(new Node(i, pos, norm));
+		nodes.push_back(new Node(i, v.Position, v.Normal));
 		i++;
 	}
 
-	// Populate every node with its connections:
+	// Populate every node with its faces and connections:
+	std::vector<ordered_set> connections;
+	populateFaces();
+	populateConnections(connections);
+
+	//for (int n = 0; n < nodes.size(); n++) {
+	//	for (Face *f : nodes[n]->faces) {
+	//		if (n != f->v1)
+	//			nodes[n]->addConnection(f->v1);
+	//		if (n != f->v2)
+	//			nodes[n]->addConnection(f->v2);
+	//		if (n != f->v3)
+	//			nodes[n]->addConnection(f->v3);
+	//	}
+	//}
+
+	float time = glfwGetTime();
+	//orderConnections(connections);
+	addConnections(connections);
+	std::cout << "Time to order connections: " << glfwGetTime() - time << std::endl;
+
+	time = glfwGetTime();
+	//recalculateNormals();
+	recalculateNormalsFromFaces();
+	std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
+}
+
+Graph::Graph(std::vector<Node*> newNodes, std::vector<Face*> faces) 
+	: nodes(newNodes), faceVector(faces)
+{
+	octree = NULL; // TODO: build octree
+	modelRef = NULL;
+}
+
+Graph::~Graph()
+{
+	delete(octree);
+	for (Face *f : faceVector) {
+		delete(f);
+	}
+}
+
+void Graph::populateConnections(std::vector<ordered_set> &connections) 
+{
 	std::vector<unsigned int> faces = octree->faces;
-	std::vector<std::unordered_set<int>> connections;
-	connections.assign(nodes.size(), std::unordered_set<int>());
+	connections.assign(nodes.size(), ordered_set());
 	int size = faces.size();
 	for (int i = 0; i < size; i += 3) {
 		int a = faces[i];
@@ -563,51 +658,211 @@ Graph::Graph(Model model, float dist) : displacement(dist)
 		connections[a].insert(b);
 		connections[a].insert(c);
 
-		connections[b].insert(a);
+		// this preserves winding order in the first two connections-
+		// required to rebuild normals.
 		connections[b].insert(c);
+		connections[b].insert(a);
 
-		connections[c].insert(a);
 		connections[c].insert(b);
+		connections[c].insert(a);
+	}
+}
+
+void Graph::populateFaces() 
+{
+	std::vector<unsigned int> faces = octree->faces;
+	int size = faces.size();
+	faceVector.reserve(size);
+	for (int i = 0; i < size; i += 3) {
+		faceVector.push_back(new Face(faces[i], faces[i + 1], faces[i + 2], octree->vertices));
 	}
 
+	for (int face = 0; face < faceVector.size(); face++) {
+		nodes[faceVector[face]->v1]->addFace(face);
+		nodes[faceVector[face]->v2]->addFace(face);
+		nodes[faceVector[face]->v3]->addFace(face);
+	}
+}
+
+void Graph::addConnections(std::vector<ordered_set> connections)
+{
 	for (int n = 0; n < nodes.size(); n++) {
-		for (int i : connections[n]) {
+		for (int i : connections[n].vector) {
 			nodes[n]->addConnection(i);
 		}
 	}
 }
 
-Graph::Graph(std::vector<Node*> newNodes, float dist) : 
-	nodes(newNodes), displacement(dist)
+void Graph::orderConnections(std::vector<ordered_set> connections)
 {
-	octree = NULL; // TODO: build octree
-	modelRef = NULL;
+	int brokenVerts = 0;
+
+	for (int n = 0; n < nodes.size(); n++) {
+		std::vector<int> nodeConnections;
+		nodeConnections.reserve(connections[n].size());
+		// we know the first two connections should be correctly ordered:
+		nodeConnections.push_back(connections[n].popFromSet());
+		nodeConnections.push_back(connections[n].popFromSet());
+		bool brokenVert = false;
+
+		while (!connections[n].set.empty()) {
+			int last = nodeConnections.back();
+			for (int i : connections[nodeConnections.back()].vector) {
+				if (connections[n].set.count(i) == 1) {
+					nodeConnections.push_back(i);
+					connections[n].set.erase(i);
+					break;
+				}
+			}
+			if (last == nodeConnections.back()) {
+				brokenVerts++;
+				brokenVert = true;
+				break;
+			}
+				
+		}
+
+		if (brokenVert) {
+			for (int i : connections[n].vector) {
+				nodes[n]->addConnection(i);
+			}
+		}
+		else {
+			for (int i : nodeConnections) {
+				nodes[n]->addConnection(i);
+			}
+		}
+	}
+
+	std::cout << "Unable to rebuild " << brokenVerts << " connections." << std::endl;
 }
 
-Graph::~Graph()
+void Graph::recalculateNormals()
 {
-	delete(octree);
+	// recalculate face-weighted normals
+	for (int n = 0; n < nodes.size(); n++) {
+		Node *node = nodes[n];
+		glm::vec3 p = node->position;
+		int last = node->connections.size() - 1;
+		glm::vec3 e1 = nodes[node->connections[last]]->position - p;
+		glm::vec3 e2 = nodes[node->connections[0]]->position - p;
+		glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
+
+		for (int i = 0; i < node->connections.size() - 1; i++) {
+			e1 = nodes[node->connections[i]]->position - p;
+			e2 = nodes[node->connections[i + 1]]->position - p;
+			faceNormal += glm::normalize(glm::cross(e1, e2));
+		}
+
+		faceNormal = glm::normalize(faceNormal);
+		if (glm::dot(nodes[n]->normal, faceNormal) > 0) {
+			nodes[n]->normal = faceNormal;
+		} else {
+			nodes[n]->normal = -faceNormal;
+		}
+	}
+}
+
+void Graph::recalculateNormalsFromFaces()
+{
+	int num = 0, numc = 0;
+	for (int n = 0; n < nodes.size(); n++) {
+		glm::vec3 norm = nodes[n]->normal;
+		std::vector<int> v;
+		for (int c : nodes[n]->connections)
+			v.push_back(c);
+
+		glm::vec3 normal = glm::vec3(0, 0, 0);
+		for (int face : nodes[n]->faces) {
+			normal += faceVector[face]->normal;
+		}
+
+		nodes[n]->normal = glm::normalize(normal);
+
+		if (!glm::all(glm::equal(nodes[n]->normal, norm)))
+			num++;
+
+		bool err = false;
+		if (v.size() == nodes[n]->connections.size()) {
+			for (int c = 0; c < nodes[n]->connections.size(); c++) {
+				if (nodes[n]->connections[c] != v[c])
+					err = true;
+			}
+		}
+		else {
+			err = true;
+		}
+
+		if (err)
+			numc++;
+	}
+	std::cout << "Number of corrupted vertices: " << numc << std::endl;
+	std::cout << "Number of reoriented normals: " << num << std::endl;
+}
+
+void Graph::recalculateNormalsFaceWeight()
+{
+	// recalculate face-weighted normals
+	for (int n = 0; n < nodes.size(); n++) {
+		Node *node = nodes[n];
+		glm::vec3 p = node->position;
+		int last = node->connections.size() - 1;
+		glm::vec3 e1 = nodes[node->connections[last]]->position - p;
+		glm::vec3 e2 = nodes[node->connections[0]]->position - p;
+		glm::vec3 faceNormal = glm::cross(e1, e2);
+
+		for (int i = 0; i < node->connections.size() - 1; i++) {
+			e1 = nodes[node->connections[i]]->position - p;
+			e2 = nodes[node->connections[i + 1]]->position - p;
+			faceNormal += glm::cross(e1, e2);
+		}
+
+		faceNormal = glm::normalize(faceNormal);
+		if (glm::dot(nodes[n]->normal, faceNormal) > 0) {
+			nodes[n]->normal = faceNormal;
+		}
+		else {
+			nodes[n]->normal = -faceNormal;
+		}
+	}
+}
+
+void Graph::scale(float displacement)
+{
+	for (Node *n : nodes) {
+		// TODO: 
+		//call relocateVert() with offset, newPos, newNormal, and list of faces
+
+		// float dist = 0;
+		//for each associated face
+			// find intersect of face plane and vertex normal
+			// dist = std::max(dist, intersection);
+		glm::vec3 pos = n->position;
+		glm::vec3 norm = n->normal;
+		n->position = pos + (norm * displacement);
+	}
 }
 
 int Graph::CombineNodes(int n1, int n2)
 {
-	// TODO: fix this- vertex position isn't great
-	glm::vec3 pos = (nodes[n1]->position + nodes[n2]->position);
-	pos *= 0.5;
-	glm::vec3 norm = (nodes[n1]->normal + nodes[n2]->normal);
-	norm *= 0.5;
-	float distance;
-
-	glm::intersectRayPlane(pos, norm, nodes[n1]->position, nodes[n1]->normal, distance);
-	if (distance > 0.0) {
-		pos += norm * distance;
-	}
-	
-	int index = nodes.size();
-	Node *node = new Node(index, pos, norm);
+	//change to relocateVert
+	Node *node = nodeFromAverage(nodes[n1], nodes[n2]);
 	nodes.push_back(node);
 
-	std::unordered_set<int> connections;
+	CombineConnections(n1, n2, node);
+	CombineFaces(n1, n2, node);
+
+	delete(nodes[n1]);
+	nodes[n1] = NULL;
+	delete(nodes[n2]);
+	nodes[n2] = NULL;
+	return node->ID;
+}
+
+void Graph::CombineConnections(int n1, int n2, Node *node) 
+{
+	int index = node->ID;
+	ordered_set connections;
 	for (int i : nodes[n1]->connections) {
 		if (nodes[i] && i != n2) {
 			connections.insert(i);
@@ -618,7 +873,7 @@ int Graph::CombineNodes(int n1, int n2)
 			connections.insert(i);
 		}
 	}
-	for (int i : connections) {
+	for (int i : connections.vector) {
 		node->connections.push_back(i);
 
 		// rebuild all connections from attached nodes
@@ -627,21 +882,89 @@ int Graph::CombineNodes(int n1, int n2)
 			int cIndex = c->connections[j];
 			if (cIndex == n1 || cIndex == n2) {
 				c->connections[j] = index;
-				break; // break early
+				break;
+			}
+		}
+	}
+}
+
+void Graph::CombineFaces(int n1, int n2, Node *node) 
+{
+	// delete faces that belong to both nodes
+	int index = node->ID;
+	for (int i : nodes[n1]->faces) {
+		if (faceVector[i])
+			node->faces.insert(i);
+	}
+	for (int i : nodes[n2]->faces) {
+		if (faceVector[i]) {
+			if (node->faces.count(i) == 1) {
+				node->faces.erase(i);
+				delete(faceVector[i]);
+				faceVector[i] = NULL;
+			} else {
+				node->faces.insert(i);
 			}
 		}
 	}
 
-	delete(nodes[n1]);
-	nodes[n1] = NULL;
-	delete(nodes[n2]);
-	nodes[n2] = NULL;
-	return index;
+	// update all other faces to new values
+	for (int i : node->faces) {
+		int v1 = faceVector[i]->v1;
+		int v2 = faceVector[i]->v2;
+		int v3 = faceVector[i]->v3;
+
+		if (v1 == n1 || v1 == n2)
+			faceVector[i]->v1 = index;
+		if (v2 == n1 || v2 == n2)
+			faceVector[i]->v2 = index;
+		if (v3 == n1 || v3 == n2)
+			faceVector[i]->v3 = index;
+
+		faceVector[i]->update(nodes);
+	}
+}
+
+Node* Graph::nodeFromAverage(Node* n1, Node* n2)
+{
+	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
+	glm::vec3 pos = (n1->position + n2->position) * 0.5f;
+
+	return new Node(nodes.size(), pos, norm);
+}
+
+Node* Graph::nodeFromPreservedEdges(Node* n1, Node* n2)
+{
+	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
+	float dot1 = glm::dot(n1->normal, norm);
+	float dot2 = glm::dot(n2->normal, norm);
+
+	if (dot1 > dot2)
+		return new Node(nodes.size(), n1->position, norm);
+
+	return new Node(nodes.size(), n2->position, norm);
+}
+
+Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
+{
+	// fix this- vertex position isn't great
+	glm::vec3 pos = (n1->position + n2->position);
+	pos *= 0.5;
+	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
+	float distance;
+
+	glm::intersectRayPlane(pos, norm, n1->position, n1->normal, distance);
+	if (distance > 0.0) {
+		pos += norm * distance;
+	}
+
+	return new Node(nodes.size(), pos, norm);
 }
 
 Graph* Graph::ReduceFootprint()
 {
 	std::vector<Node*> newNodes;
+	std::vector<Face*> newFaces;
 	std::vector<int> translate; // on the theory that this is faster than a hashtable
 	translate.reserve(nodes.size());
 	int index = 0;
@@ -656,14 +979,19 @@ Graph* Graph::ReduceFootprint()
 		}
 	}
 
+	for (Face *f : faceVector) {
+		if (f)
+			newFaces.push_back(f);
+	}
+
 	cleanConnections(newNodes, translate);
-	return new Graph(newNodes, displacement);
+	return new Graph(newNodes, newFaces);
 }
 
 void Graph::cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate) 
 {
-	std::vector<std::unordered_set<int>> connections;
-	connections.assign(nodeList.size(), std::unordered_set<int>());
+	std::vector<ordered_set> connections;
+	connections.assign(nodeList.size(), ordered_set());
 	for (int n = 0; n < nodeList.size(); n++) {
 		for (int c : nodeList[n]->connections) {
 			if (nodes[c]) {
@@ -676,7 +1004,7 @@ void Graph::cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &tra
 	for (int n = 0; n < nodeList.size(); n++) {
 		Node *node = new Node(n, nodeList[n]->position, nodeList[n]->normal);
 
-		for (int i : connections[n]) {
+		for (int i : connections[n].vector) {
 			if (nodes[i])
 				node->addConnection(translate[i]);
 		}
