@@ -161,4 +161,6 @@ public:
 	Node* nodeFromPreservedEdges(Node* n1, Node* n2);
 	Graph* ReduceFootprint();
 	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
+	std::vector<Face*> cleanFaces(std::vector<Node*> &nodeList, std::vector<int> &translate);
+	bool verifyFacesFromConnections(int node);
 };

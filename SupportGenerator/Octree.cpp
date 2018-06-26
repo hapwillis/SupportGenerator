@@ -431,13 +431,13 @@ void Octree::removeDuplicateFaces()
 		for (auto r = range.first; r != range.second; r++) {
 			int index = r->second;
 
-			if ((faces[i + 1] == faces[index]) && (faces[i + 2] == faces[index + 1])) {
+			if ((faces[i + 1] == newFaces[index]) && (faces[i + 2] == newFaces[index + 1])) {
 				notFound = false;
 				break;
 			}
 		}
 
-		//if not found, insert this point and set translate[tIndex] = vIndex
+		//if not found, insert this face
 		if (notFound) {
 			faceMap.insert(std::pair<int, int>(key, fIndex + 1)); 
 			newFaces.push_back(key); 
@@ -641,7 +641,7 @@ Graph::~Graph()
 {
 	delete(octree);
 	for (Face *f : faceVector) {
-		delete(f);
+		//delete(f);
 	}
 }
 
@@ -671,11 +671,14 @@ void Graph::populateConnections(std::vector<ordered_set> &connections)
 void Graph::populateFaces() 
 {
 	std::vector<unsigned int> faces = octree->faces;
-	int size = faces.size();
-	faceVector.reserve(size);
-	for (int i = 0; i < size; i += 3) {
+	faceVector.reserve(std::ceil(faces.size() / 3.0));
+
+	for (int i = 0; i < faces.size(); i += 3) {
 		faceVector.push_back(new Face(faces[i], faces[i + 1], faces[i + 2], octree->vertices));
 	}
+
+	std::cout << "number of faces: " << faceVector.size() << std::endl;
+	std::cout << "number of vertices: " << nodes.size() << std::endl;
 
 	for (int face = 0; face < faceVector.size(); face++) {
 		nodes[faceVector[face]->v1]->addFace(face);
@@ -893,8 +896,9 @@ void Graph::CombineFaces(int n1, int n2, Node *node)
 	// delete faces that belong to both nodes
 	int index = node->ID;
 	for (int i : nodes[n1]->faces) {
-		if (faceVector[i])
+		if (faceVector[i]) {
 			node->faces.insert(i);
+		}
 	}
 	for (int i : nodes[n2]->faces) {
 		if (faceVector[i]) {
@@ -964,7 +968,6 @@ Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 Graph* Graph::ReduceFootprint()
 {
 	std::vector<Node*> newNodes;
-	std::vector<Face*> newFaces;
 	std::vector<int> translate; // on the theory that this is faster than a hashtable
 	translate.reserve(nodes.size());
 	int index = 0;
@@ -979,11 +982,7 @@ Graph* Graph::ReduceFootprint()
 		}
 	}
 
-	for (Face *f : faceVector) {
-		if (f)
-			newFaces.push_back(f);
-	}
-
+	std::vector<Face*> newFaces = cleanFaces(newNodes, translate);
 	cleanConnections(newNodes, translate);
 	return new Graph(newNodes, newFaces);
 }
@@ -995,7 +994,7 @@ void Graph::cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &tra
 	for (int n = 0; n < nodeList.size(); n++) {
 		for (int c : nodeList[n]->connections) {
 			if (nodes[c]) {
-				connections[n].insert(c);
+				connections[n].insert(translate[c]);
 				connections[translate[c]].insert(n);
 			}
 		}
@@ -1003,12 +1002,96 @@ void Graph::cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &tra
 
 	for (int n = 0; n < nodeList.size(); n++) {
 		Node *node = new Node(n, nodeList[n]->position, nodeList[n]->normal);
+		for (int f : nodeList[n]->faces) {
+			node->faces.insert(f);
+		}
 
 		for (int i : connections[n].vector) {
-			if (nodes[i])
-				node->addConnection(translate[i]);
+			if (nodeList[i])
+				node->addConnection(i);
 		}
 
 		nodeList[n] = node;
 	}
+}
+
+std::vector<Face*> Graph::cleanFaces(std::vector<Node*> &nodeList, std::vector<int> &translate)
+{
+	std::vector<Face*> faceList;
+	std::vector<int> faceTran;
+	faceTran.reserve(faceList.size());
+
+	int index = 0;
+	for (Face *f : faceVector) {
+		if (f) {
+			faceTran.push_back(index);
+			f->v1 = translate[f->v1];
+			f->v2 = translate[f->v2];
+			f->v3 = translate[f->v3];
+			faceList.push_back(f);
+			index++;
+		} else {
+			faceTran.push_back(-1);
+		}
+	}
+
+	int invalid = 0;
+	for (Node* node : nodeList) {
+		// Push the faces
+		std::unordered_set<int> newFaces;
+		for (int f: node->faces) {
+			int tran = faceTran[f];
+			if (tran != -1) 
+				newFaces.insert(tran);
+		}
+		node->faces = std::unordered_set<int>();
+
+		for (int f : newFaces) {
+			node->faces.insert(f);
+		}
+	}
+
+	return faceList;
+}
+
+bool Graph::verifyFacesFromConnections(int node)
+{
+	if (nodes[node]) {
+		std::unordered_set<int> connectionsFromFaces;
+		std::unordered_set<int> uniqueConnections;
+
+		for (int face : nodes[node]->faces) {
+			if (face != -1 && faceVector[face]) {
+				int facecon = faceVector[face]->v1;
+				if (nodes[facecon])
+					connectionsFromFaces.insert(facecon);
+				facecon = faceVector[face]->v2;
+				if (nodes[facecon])
+					connectionsFromFaces.insert(facecon);
+				facecon = faceVector[face]->v3;
+				if (nodes[facecon])
+					connectionsFromFaces.insert(facecon);
+			}
+		}
+		connectionsFromFaces.erase(nodes[node]->ID);
+
+		for (int c : nodes[node]->connections) {
+			if(nodes[c])
+				uniqueConnections.insert(c);
+		}
+
+		for (int c : uniqueConnections) {
+			if (connectionsFromFaces.count(c) == 1) {
+				connectionsFromFaces.erase(c);
+			}
+			else {
+				if (nodes[c])
+					return false;
+			}
+		}
+
+		return connectionsFromFaces.size() == 0;
+	}
+	
+	return true;
 }

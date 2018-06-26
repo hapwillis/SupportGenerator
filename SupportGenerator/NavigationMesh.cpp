@@ -104,12 +104,10 @@ bool operator<(const Edge& a, const Edge& b)
 	return a.length > b.length;
 }
 
-
 NavigationMesh::NavigationMesh()
 {
 
 }
-
 
 NavigationMesh::~NavigationMesh()
 {
@@ -128,9 +126,22 @@ bool NavigationMesh::loadModel(Model &newModel, float offset, float width)
 		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 		time = glfwGetTime();
 
+		int mismatches = 0;
+		for (Node *node : modelGraph->nodes) {
+			if (!modelGraph->verifyFacesFromConnections(node->ID))
+				mismatches++;
+		}
+		std::cout << "Mismatched Vertices before decimation: " << mismatches << std::endl;
+
 		// 57.52 seconds to run decimateMesh
 		navGraph = decimateMesh();
 		std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
+		mismatches = 0;
+		for (Node *node : navGraph->nodes) {
+			if (!navGraph->verifyFacesFromConnections(node->ID))
+				mismatches++;
+		}
+		std::cout << "Mismatched Vertices after reduction: " << mismatches << std::endl;
 		navGraph->scale(offset);
 		time = glfwGetTime();
 
@@ -195,6 +206,8 @@ Graph* NavigationMesh::decimateMesh()
 {
 	initializeHeap(); // TODO: write custom heap that uses pointers
 
+	int mismatches = 0;
+
 	float minLength = supportWidth * 0.25;
 	float smallestEdge = minLength - 1.0;
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
@@ -221,6 +234,15 @@ Graph* NavigationMesh::decimateMesh()
 			}
 		}
 	} 
+
+	for (Node *node : modelGraph->nodes) {
+		if (node) {
+			if (!modelGraph->verifyFacesFromConnections(node->ID))
+				mismatches++;
+		}
+	}
+	std::cout << "Mismatched Vertices after decimation: " << mismatches << std::endl;
+
 	return modelGraph->ReduceFootprint();
 }
 
@@ -241,6 +263,7 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph)
 
 void NavigationMesh::windFaces(std::vector<Node*> &nodes, std::vector<unsigned int> &indices)
 {
+	int fnum = 0;
 	//Not quite the fastest way to do this, but it's easy.
 	for (int i = 0; i < nodes.size(); i++) {
 		//for each node, make a list of each connection to a higher index
@@ -252,6 +275,7 @@ void NavigationMesh::windFaces(std::vector<Node*> &nodes, std::vector<unsigned i
 						//check if this vertex connects to the original vertex
 						for (int v1 : nodes[v3]->connections) {
 							if (v1 == i) { //add face
+								fnum++;
 								indices.push_back(v1);
 								indices.push_back(v2);
 								indices.push_back(v3);
@@ -261,21 +285,34 @@ void NavigationMesh::windFaces(std::vector<Node*> &nodes, std::vector<unsigned i
 				}
 			}
 		}
-	}		
+	}
+	std::cout << "number of faces: " << fnum << std::endl;
+	std::cout << "number of vertices: " << nodes.size() << std::endl;
 }
 
 void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)
 {
+	std::cout << "number of faces: " << graph->faceVector.size() << std::endl;
+	std::cout << "number of vertices: " << graph->nodes.size() << std::endl;
+
+	//It's gotta be this, right?  This isn't creating all the faces?
+	int invalid = 0;
 	int size = graph->nodes.size();
 	for (int i = 0; i < size; i++) {
 		Node *node = graph->nodes[i];
-		for (int f : node->connections) {
-			Face *face = graph->faceVector[f];
-			indices.push_back(face->v1);
-			indices.push_back(face->v2);
-			indices.push_back(face->v3);
+		for (int f : node->faces) {
+			if (f != -1) { //TODO: remove this once missing faces are filtered out. 
+				Face *face = graph->faceVector[f];
+				indices.push_back(face->v1);
+				indices.push_back(face->v2);
+				indices.push_back(face->v3);
+			} else {
+				invalid++;
+			}
 		}
 	}
+
+	std::cout << "Corrupted face indices: " << invalid << std::endl;
 }
 
 bool NavigationMesh::edgeValid(Edge edge, Graph *graph)

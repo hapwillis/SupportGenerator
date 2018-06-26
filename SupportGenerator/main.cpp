@@ -138,11 +138,11 @@ int main()
 		shader.setVec3("camLightDir", camera.Direction());
 		shader.setFloat("camLightInten", 0.8f);
 
-		if (model)
+		if (model && !navMesh)
 			model->Draw(shader);
 
 		if (navMesh)
-			navMesh->Draw(shader); 
+			navMesh->navMesh->Draw(shader); 
 
 		// get matrix's uniform location and set matrix
 
