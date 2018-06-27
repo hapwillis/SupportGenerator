@@ -138,11 +138,11 @@ int main()
 		shader.setVec3("camLightDir", camera.Direction());
 		shader.setFloat("camLightInten", 0.8f);
 
-		if (model && !navMesh)
+		if (model)
 			model->Draw(shader);
 
 		if (navMesh)
-			navMesh->navMesh->Draw(shader); 
+			navMesh->Draw(shader); 
 
 		//NB that spreading supports by radius is mathematically equivalent to formlabs method:
 		//https://youtu.be/5VlprrdGYKM?t=22m33s
