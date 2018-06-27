@@ -394,9 +394,8 @@ std::vector<int> Octree::constructUniqueVertices(int size, std::vector<Mesh> &me
 			//check vertexMap for key, find any equal vertices
 			for (auto r = range.first; r != range.second; r++) { 
 				int index = r->second;
-				bool equal = glm::all(glm::equal(v.Position, vertices[index].Position));
 				// if found, set translate[tIndex] = value
-				if (equal) { 
+				if (pointsEqual(v.Position, vertices[index].Position)) {
 					translate.push_back(index);
 					notFound = false;
 					break;
@@ -413,6 +412,25 @@ std::vector<int> Octree::constructUniqueVertices(int size, std::vector<Mesh> &me
 	}
 
 	return translate;
+}
+
+bool Octree::pointsEqual(glm::vec3 p, glm::vec3 q)
+{
+	//return !glm::all(glm::equal(q, p));
+	bool a = false;
+	bool b = false;
+	bool c = false;
+	if (std::abs(p.x - q.x) == 0.0) {
+		a = true;
+	}
+	if (std::abs(p.y - q.y) == 0.0) {
+		b = true;
+	}
+	if (std::abs(p.z - q.z) == 0.0) {
+		c = true;
+	}
+
+	return (a && b && c);
 }
 
 void Octree::removeDuplicateFaces()
@@ -691,7 +709,8 @@ void Graph::addConnections(std::vector<ordered_set> connections)
 {
 	for (int n = 0; n < nodes.size(); n++) {
 		for (int i : connections[n].vector) {
-			nodes[n]->addConnection(i);
+			if (n != i)
+				nodes[n]->addConnection(i);
 		}
 	}
 }
@@ -1081,11 +1100,27 @@ bool Graph::verifyFacesFromConnections(int node)
 		}
 
 		for (int c : uniqueConnections) {
-			if (connectionsFromFaces.count(c) == 1) {
+			if (connectionsFromFaces.count(c) == 1 || c == node) {
 				connectionsFromFaces.erase(c);
 			}
 			else {
+				std::vector<Node*> nodeConnections;
+				std::vector<Face*> faceConnections;
+				std::vector<Node*> relatedNodes;
+
+				for (int nc: nodes[node]->connections) {
+					nodeConnections.push_back(nodes[nc]);
+					//relatedNodes.push_back(nodes[nc]);
+				}
+				for (int nf : nodes[node]->faces) {
+					faceConnections.push_back(faceVector[nf]);
+					relatedNodes.push_back(nodes[faceVector[nf]->v1]);
+					relatedNodes.push_back(nodes[faceVector[nf]->v2]);
+					relatedNodes.push_back(nodes[faceVector[nf]->v3]);
+				}
+
 				if (nodes[c])
+
 					return false;
 			}
 		}

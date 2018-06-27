@@ -99,6 +99,7 @@ public:
 
 	void removeDuplicateVertices(std::vector<Mesh> &meshes);
 	std::vector<int> constructUniqueVertices(int size, std::vector<Mesh> &meshes);
+	bool pointsEqual(glm::vec3 p, glm::vec3 q);
 	void removeDuplicateFaces();
 
 	void getRange();

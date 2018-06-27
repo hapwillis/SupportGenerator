@@ -126,22 +126,10 @@ bool NavigationMesh::loadModel(Model &newModel, float offset, float width)
 		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 		time = glfwGetTime();
 
-		int mismatches = 0;
-		for (Node *node : modelGraph->nodes) {
-			if (!modelGraph->verifyFacesFromConnections(node->ID))
-				mismatches++;
-		}
-		std::cout << "Mismatched Vertices before decimation: " << mismatches << std::endl;
-
 		// 57.52 seconds to run decimateMesh
 		navGraph = decimateMesh();
 		std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
-		mismatches = 0;
-		for (Node *node : navGraph->nodes) {
-			if (!navGraph->verifyFacesFromConnections(node->ID))
-				mismatches++;
-		}
-		std::cout << "Mismatched Vertices after reduction: " << mismatches << std::endl;
+
 		navGraph->scale(offset);
 		time = glfwGetTime();
 
@@ -209,7 +197,7 @@ Graph* NavigationMesh::decimateMesh()
 	int mismatches = 0;
 
 	float minLength = supportWidth * 0.25;
-	float smallestEdge = minLength - 1.0;
+	float smallestEdge = minLength + 1.0;
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge e = edgeHeap.top();
@@ -234,14 +222,6 @@ Graph* NavigationMesh::decimateMesh()
 			}
 		}
 	} 
-
-	for (Node *node : modelGraph->nodes) {
-		if (node) {
-			if (!modelGraph->verifyFacesFromConnections(node->ID))
-				mismatches++;
-		}
-	}
-	std::cout << "Mismatched Vertices after decimation: " << mismatches << std::endl;
 
 	return modelGraph->ReduceFootprint();
 }

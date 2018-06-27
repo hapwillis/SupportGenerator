@@ -130,6 +130,7 @@ void Model::loadModel(std::string &path)
 	// Adding aiProcess_JoinIdenticalVertices increases load time by 5.8 seconds.
 	const aiScene *scene = import.ReadFile(path, 
 		//aiProcess_GenNormals			|
+		aiProcess_JoinIdenticalVertices |
 		aiProcess_Triangulate			| 
 		aiProcess_RemoveComponent		|
 		aiProcess_FlipUVs);
