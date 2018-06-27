@@ -332,7 +332,6 @@ Octree::Octree(std::vector<Mesh> &meshes)
 	faceRoot = new FaceCell(glm::vec3(0.0, 0.0, 0.0), range);
 
 	time = glfwGetTime();
-	int vIndex = 0, fIndex = 0, offset = 0;
 	//0.0284 seconds to build vertex octree
 	for (int i = 0; i < vertices.size(); i++) {
 		addVertex(i);
@@ -609,6 +608,10 @@ void Node::addFace(int face)
 	faces.insert(face);
 }
 
+void Node::updateNormal(glm::vec3 n) {
+	normal = n;
+}
+
 Graph::Graph(Model model)
 {
 	modelRef = &model;
@@ -626,26 +629,31 @@ Graph::Graph(Model model)
 	populateFaces();
 	populateConnections(connections);
 
-	//for (int n = 0; n < nodes.size(); n++) {
-	//	for (Face *f : nodes[n]->faces) {
-	//		if (n != f->v1)
-	//			nodes[n]->addConnection(f->v1);
-	//		if (n != f->v2)
-	//			nodes[n]->addConnection(f->v2);
-	//		if (n != f->v3)
-	//			nodes[n]->addConnection(f->v3);
-	//	}
-	//}
-
 	float time = glfwGetTime();
 	//orderConnections(connections);
 	addConnections(connections);
 	std::cout << "Time to order connections: " << glfwGetTime() - time << std::endl;
 
+	std::vector<glm::vec3> normals;
+	for (Node *n : nodes) {
+		normals.push_back(n->normal);
+	}
+
 	time = glfwGetTime();
 	//recalculateNormals();
-	recalculateNormalsFromFaces();
+	//recalculateNormalsFromFaces();
 	std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
+
+	int invalidNormals = 0;
+	for (Node *n : nodes) {
+		if (glm::length(n->normal) > 1.0) {
+			invalidNormals++;
+		}
+		else {
+			//if (glm::angle(normals[]))
+		}
+	}
+	std::cout << "Unusual normals: " << invalidNormals << std::endl;
 }
 
 Graph::Graph(std::vector<Node*> newNodes, std::vector<Face*> faces) 
@@ -787,39 +795,22 @@ void Graph::recalculateNormals()
 
 void Graph::recalculateNormalsFromFaces()
 {
-	int num = 0, numc = 0;
+	// this generates invalid normals, which are then not rendered.  Reason unknown.
 	for (int n = 0; n < nodes.size(); n++) {
-		glm::vec3 norm = nodes[n]->normal;
-		std::vector<int> v;
-		for (int c : nodes[n]->connections)
-			v.push_back(c);
-
-		glm::vec3 normal = glm::vec3(0, 0, 0);
+		//glm::vec3 newNormal = glm::vec3(0.0f, 0.0f, 0.0f);
+		std::vector<int> tvect;
 		for (int face : nodes[n]->faces) {
-			normal += faceVector[face]->normal;
+			tvect.push_back(face);
+			//newNormal += faceVector[face]->normal;
 		}
-
-		nodes[n]->normal = glm::normalize(normal);
-
-		if (!glm::all(glm::equal(nodes[n]->normal, norm)))
-			num++;
-
-		bool err = false;
-		if (v.size() == nodes[n]->connections.size()) {
-			for (int c = 0; c < nodes[n]->connections.size(); c++) {
-				if (nodes[n]->connections[c] != v[c])
-					err = true;
-			}
+		glm::vec3 tNormal = faceVector[tvect[0]]->normal;
+		for (int i = 1; i < tvect.size(); i++) {
+			tNormal = tNormal + glm::normalize(faceVector[tvect[i]]->normal);
 		}
-		else {
-			err = true;
-		}
+		glm::vec3 newNormal = glm::normalize(tNormal);
 
-		if (err)
-			numc++;
+		nodes[n]->updateNormal(newNormal);
 	}
-	std::cout << "Number of corrupted vertices: " << numc << std::endl;
-	std::cout << "Number of reoriented normals: " << num << std::endl;
 }
 
 void Graph::recalculateNormalsFaceWeight()

@@ -131,6 +131,7 @@ public:
 
 	void addConnection(int index);
 	void addFace(int face);
+	void updateNormal(glm::vec3 n);
 };
 
 class Graph

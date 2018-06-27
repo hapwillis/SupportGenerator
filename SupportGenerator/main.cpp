@@ -144,6 +144,10 @@ int main()
 		if (navMesh)
 			navMesh->navMesh->Draw(shader); 
 
+		//NB that spreading supports by radius is mathematically equivalent to formlabs method:
+		//https://youtu.be/5VlprrdGYKM?t=22m33s
+		//Formlabs method is slower but can be adapted to nonlinear distributions
+
 		// get matrix's uniform location and set matrix
 
 		//glBindVertexArray(VAO);

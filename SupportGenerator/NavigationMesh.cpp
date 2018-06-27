@@ -197,7 +197,7 @@ Graph* NavigationMesh::decimateMesh()
 	int mismatches = 0;
 
 	float minLength = supportWidth * 0.25;
-	float smallestEdge = minLength + 1.0;
+	float smallestEdge = minLength - 1.0;
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge e = edgeHeap.top();
@@ -230,6 +230,9 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph)
 {
 	std::vector<Vertex> vertices;
 	vertices.reserve(graph->nodes.size());
+
+	//graph->recalculateNormalsFromFaces();
+
 	for (Node *node : graph->nodes) {
 		vertices.push_back(Vertex(node->position, node->normal));
 	}
