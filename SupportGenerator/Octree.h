@@ -21,7 +21,7 @@ struct ordered_set {
 class Node;
 
 struct Face {
-	const float EPSILON = 0.0000001;
+	const float EPSILON = 0.0000001f;
 	glm::vec3 edgeOne;
 	glm::vec3 edgeTwo;
 	glm::vec3 vertex;
@@ -31,7 +31,7 @@ struct Face {
 	int v3 = -1;
 
 	Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v);
-	Face(int v1, int v2, int v3, std::vector<Vertex> &vertices);
+	Face(int v1, int v2, int v3, const std::vector<Node*> &nodes);
 
 	void update(const std::vector<Node*> &nodes);
 	bool MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd);
@@ -40,79 +40,55 @@ struct Face {
 struct FaceCell {
 	glm::vec3 center;
 	float range;
-	std::vector<Face*> faces;
 	std::vector<FaceCell*> children;
+	std::vector<Face*> faces;
 
 	FaceCell(glm::vec3 c, float r);
-
 	~FaceCell();
 
-	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize);
-
-	int findQuadrant(glm::vec3 p);
-
 	void add(Face *f, glm::vec3 center, float doubleSize);
-
+	int findQuadrant(glm::vec3 p);
 	FaceCell* populateChild(int i);
+	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize);
 };
 
-struct Cell {
+struct Octant {
+	const unsigned int maxChildren = 8;
 	glm::vec3 center;
 	float range;
-	std::vector<Cell*> children;
+	std::vector<Octant*> children;
 	std::vector<int> points; //indices of points or faces (first of three indices)
 	bool filled;
-	const unsigned int max = 8;
 
-	Cell(glm::vec3 c, float r);
+	Octant(glm::vec3 c, float r);
+	~Octant();
 
-	~Cell();
-
-	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex> &vertices);
-
+	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex*> &vertices);
 	int findOctant(glm::vec3);
-
-	void add(glm::vec3 p, int index, std::vector<Vertex> &vertices);
-
-	void split(std::vector<Vertex> &vertices);
-
+	void add(glm::vec3 p, int index, std::vector<Vertex*> &vertices);
+	void split(std::vector<Vertex*> &vertices);
 	bool pointsNotEqual(glm::vec3 p, glm::vec3 q);
+	void PopulateChildren(std::vector<Octant*> &children, glm::vec3 center, float r);
 
-	void PopulateChildren(std::vector<Cell*> &children, glm::vec3 center, float r);
-
-	Cell find(glm::vec3 p);
+	Octant find(glm::vec3 p);
 };
 
 class Octree
 {
 public:
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> faces;
-	float range;
-	Cell *root;
+	std::vector<Vertex*> vertices;
+	std::vector<unsigned int> *faces;
+	float Range;
+	Octant *root;
 	FaceCell *faceRoot;
-	int max; 
 
-	Octree(std::vector<Mesh> &meshes);
-
+	Octree(const std::vector<Node*> *nodes, std::vector<Face*> *aFaces, float range);
 	~Octree();
 
-	void removeDuplicateVertices(std::vector<Mesh> &meshes);
-	std::vector<int> constructUniqueVertices(int size, std::vector<Mesh> &meshes);
-	bool pointsEqual(glm::vec3 p, glm::vec3 q);
-	void removeDuplicateFaces();
-
-	void getRange();
-	void oldGetRange();
-
 	void addVertex(int index);
-
 	void addFace(int index);
-
 	glm::vec3 getNearest(glm::vec3 p);
-
 	std::vector<int> findInRadius(glm::vec3 point, float radius, float minD);
-
 	// tests an octree of faces for intersection with a line segment
 	// faces stored by lowest index first
 	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd);
@@ -122,12 +98,12 @@ class Node
 {
 public:
 	int ID; //serial for each vertex added
-	glm::vec3 position;
-	glm::vec3 normal;
+	Vertex vertex;
 	std::vector<int> connections;
 	std::unordered_set<int> faces;
 
-	Node(int index, glm::vec3 pos, glm::vec3 norm);
+	Node(int index, Vertex v);
+	Node(int index, glm::vec3 pos, glm::vec3 norm, bool wireframe);
 
 	void addConnection(int index);
 	void addFace(int face);
@@ -137,31 +113,34 @@ class Graph
 {
 public:
 	Octree *octree;
-	Model *modelRef;
 	std::vector<Node*> nodes; //addressible by ID
 	std::vector<Face*> faceVector;
+	float Range = 0.0;
 
-	Graph(Model model);
+	Graph(const Model &model);
 	Graph(std::vector<Node*> newNodes, std::vector<Face*> faces);
-
 	~Graph();
 
-	void populateFaces();
-	void populateConnections(std::vector<ordered_set> &connections);
-	void addConnections(std::vector<ordered_set> connections);
-
-	void recalculateNormalsFromFaces();
+	void buildOctree();
+	float getRange();
 	void scale(float displacement);
-
+	void recalculateNormalsFromFaces();
 	int CombineNodes(int n1, int n2);
-	void CombineConnections(int n1, int n2, Node *node);
-	void CombineFaces(int n1, int n2, Node *node);
+	Graph* ReduceFootprint();
+	bool verifyFacesFromConnections(int node);
+
+private:
+	void ConcatenateModelMeshes(const Model &model);
+	std::vector<int> constructUniqueVertices(int size, std::vector<Mesh> &meshes);
+	void constructUniqueFaces(int size, std::vector<int> &translate, std::vector<Mesh> &meshes);
+	void populateConnections();
+	bool pointsEqual(glm::vec3 p, glm::vec3 q);
+
 	Node* nodeFromAverage(Node* n1, Node* n2);
 	Node* nodeFromIntercept(Node* n1, Node* n2);
+	void CombineConnections(int n1, int n2, Node *node);
+	void CombineFaces(int n1, int n2, Node *node);
 
-	Graph* ReduceFootprint();
 	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
 	std::vector<Face*> cleanFaces(std::vector<Node*> &nodeList, std::vector<int> &translate);
-
-	bool verifyFacesFromConnections(int node);
 };

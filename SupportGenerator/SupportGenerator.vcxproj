@@ -27,6 +27,7 @@
     <ClCompile Include="NavigationMesh.cpp" />
     <ClCompile Include="Octree.cpp" />
     <ClCompile Include="placeSupportPoints.cpp" />
+    <ClCompile Include="SupportPaths.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
@@ -34,6 +35,7 @@
     <ClInclude Include="Model.h" />
     <ClInclude Include="NavigationMesh.h" />
     <ClInclude Include="Octree.h" />
+    <ClInclude Include="SupportPaths.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ClassDiagram.cd" />

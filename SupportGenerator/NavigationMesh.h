@@ -55,10 +55,10 @@ public:
 	bool loadModel(Model &model, float offset, float width);
 	void Draw(DefaultShader shader);
 	Mesh* convertToMesh(Graph *graph);
+	void PruneSubBedVertices(glm::mat4 model);
 
 private:
 	void initializeHeap();
-	void getUniqueEdges(std::priority_queue<Edge> &edgeHeap);
 	Graph* decimateMesh();
 	void facesToIndices(Graph *graph, std::vector<unsigned int> &indices);
 	bool edgeValid(Edge edge, Graph *graph);

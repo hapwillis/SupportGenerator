@@ -35,20 +35,20 @@ Face::Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v) : edgeOne(e1), edgeTwo(e2), 
 	normal = glm::cross(glm::normalize(e1), glm::normalize(e2));
 }
 
-Face::Face(int v1, int v2, int v3, std::vector<Vertex> &vertices) : v1(v1), v2(v2), v3(v3)
+Face::Face(int v1, int v2, int v3, const std::vector<Node*> &nodes) : v1(v1), v2(v2), v3(v3)
 {
-	edgeOne = vertices[v2].Position - vertices[v1].Position;
-	edgeTwo = vertices[v3].Position - vertices[v1].Position;
-	vertex = vertices[v1].Position;
+	edgeOne = nodes[v2]->vertex.Position - nodes[v1]->vertex.Position;
+	edgeTwo = nodes[v3]->vertex.Position - nodes[v1]->vertex.Position;
+	vertex = nodes[v1]->vertex.Position;
 
 	normal = glm::cross(glm::normalize(edgeOne), glm::normalize(edgeTwo));
 }
 
 void Face::update(const std::vector<Node*> &nodes)
 {
-	edgeOne = nodes[v2]->position - nodes[v1]->position;
-	edgeTwo = nodes[v3]->position - nodes[v1]->position;
-	vertex = nodes[v1]->position;
+	edgeOne = nodes[v2]->vertex.Position - nodes[v1]->vertex.Position;
+	edgeTwo = nodes[v3]->vertex.Position - nodes[v1]->vertex.Position;
+	vertex = nodes[v1]->vertex.Position;
 
 	normal = glm::cross(glm::normalize(edgeOne), glm::normalize(edgeTwo));
 }
@@ -168,7 +168,7 @@ FaceCell* FaceCell::populateChild(int i)
 	return new FaceCell(c, range / 2.0);
 }
 
-std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex> &vertices)
+std::vector<int> Octant::getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex*> &vertices)
 {
 	if (range > radius * 4) {
 		return children[findOctant(point)]->getPoints(point, radius, minD, vertices);
@@ -176,7 +176,7 @@ std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std:
 		if (filled) {
 			// optionally you could eliminate children here, but that probably just slows it down.
 			std::vector<int> verts;
-			for (Cell *c : children) {
+			for (Octant *c : children) {
 				std::vector<int> v = c->getPoints(point, radius, minD, vertices);
 				verts.insert(verts.end(), v.begin(), v.end());
 			}
@@ -186,7 +186,7 @@ std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std:
 			std::vector<int> returnList;
 
 			for (int index : points) {
-				float d = glm::distance(vertices[index].Position, point);
+				float d = glm::distance(vertices[index]->Position, point);
 				if (d <  radius && d > minD)
 					returnList.push_back(index);
 			}
@@ -196,7 +196,7 @@ std::vector<int> Cell::getPoints(glm::vec3 point, float radius, float minD, std:
 	}
 }
 
-int Cell::findOctant(glm::vec3 p)
+int Octant::findOctant(glm::vec3 p)
 {
 	int i = 0;
 	if (p.x >= center.x) { i = i + 1; }
@@ -205,10 +205,12 @@ int Cell::findOctant(glm::vec3 p)
 	return i;
 }
 
-void Cell::add(glm::vec3 p, int pointIndex, std::vector<Vertex> &vertices)
+void Octant::add(glm::vec3 p, int pointIndex, std::vector<Vertex*> &vertices)
 {
+	// TODO: return early for identical verts
+	// build on top of root if position > range
 	if (!filled) {
-		if (points.size() < max) {
+		if (points.size() < maxChildren) {
 			points.push_back(pointIndex);
 		} else {
 			points.push_back(pointIndex);
@@ -216,7 +218,7 @@ void Cell::add(glm::vec3 p, int pointIndex, std::vector<Vertex> &vertices)
 			split(vertices);
 		}
 	} else {
-		Cell *cell = children[findOctant(p)];
+		Octant *cell = children[findOctant(p)];
 		while (cell->filled) {
 			cell = cell->children[cell->findOctant(p)];
 		}
@@ -225,20 +227,20 @@ void Cell::add(glm::vec3 p, int pointIndex, std::vector<Vertex> &vertices)
 	}
 }
 
-void Cell::split(std::vector<Vertex> &vertices)
+void Octant::split(std::vector<Vertex*> &vertices)
 {
 	children.reserve(8);
 	PopulateChildren(children, center, range / 2.0);
 
 	for (int p : points) {
-		glm::vec3 pos = vertices[p].Position;
+		glm::vec3 pos = vertices[p]->Position;
 		children[findOctant(pos)]->add(pos, p, vertices);
 	}
 
 	points.clear();
 }
 
-bool Cell::pointsNotEqual(glm::vec3 p, glm::vec3 q)
+bool Octant::pointsNotEqual(glm::vec3 p, glm::vec3 q)
 {
 	//return !glm::all(glm::equal(q, p));
 	bool a = false;
@@ -257,35 +259,35 @@ bool Cell::pointsNotEqual(glm::vec3 p, glm::vec3 q)
 	return !(a && b && c);
 }
 
-void Cell::PopulateChildren(std::vector<Cell*> &children, glm::vec3 center, float r)
+void Octant::PopulateChildren(std::vector<Octant*> &children, glm::vec3 center, float r)
 {
 	// TODO: lazy initialization
 	float offset = r / 2.0;
 	glm::vec3 c = center;
 	c -= glm::vec3(offset, offset, offset);
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 	c.x += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 	c.x -= r;
 	c.y += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 	c.x += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 
 	c.x -= r;
 	c.y -= r;
 	c.z += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 	c.x += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 	c.x -= r;
 	c.y += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 	c.x += r;
-	children.push_back(new Cell(c, r));
+	children.push_back(new Octant(c, r));
 }
 
-Cell Cell::find(glm::vec3 p)
+Octant Octant::find(glm::vec3 p)
 {
 	int child = findOctant(p);
 	if (children[child]) {
@@ -297,41 +299,32 @@ Cell Cell::find(glm::vec3 p)
 		}
 	}
 
-	return *(new Cell(center, range));
+	return *(new Octant(center, range));
 }
 
-Cell::Cell(glm::vec3 c, float r) : center(c), range(r), filled(false)
+Octant::Octant(glm::vec3 c, float r) : center(c), range(r), filled(false)
 {
 
 }
 
-Cell::~Cell()
+Octant::~Octant()
 {
-	for (Cell *c : children) {
+	for (Octant *c : children) {
 		delete c;
 	}
 }
 
-Octree::Octree(std::vector<Mesh> &meshes)
+Octree::Octree(const std::vector<Node*> *nodes, std::vector<Face*> *aFaces, float range) :
+	Range(range)
 {
-	float time = glfwGetTime();
-	//0.131 seconds to remove vertices
-	removeDuplicateVertices(meshes);
-	std::cout << "Time to remove verts: " << glfwGetTime() - time << std::endl;
-	
-	time = glfwGetTime();
-	//0.045 seconds to remove faces
-	removeDuplicateFaces();
-	std::cout << "Time to remove faces: " << glfwGetTime() - time << std::endl;
-
-	time = glfwGetTime();
-	getRange();
-	std::cout << "Time to get range: " << glfwGetTime() - time << std::endl;
-
-	root = new Cell(glm::vec3(0.0, 0.0, 0.0), range);
+	root = new Octant(glm::vec3(0.0, 0.0, 0.0), range);
 	faceRoot = new FaceCell(glm::vec3(0.0, 0.0, 0.0), range);
+	vertices.reserve(nodes->size());
+	for (Node *n : *nodes) {
+		vertices.push_back(&n->vertex);
+	}
 
-	time = glfwGetTime();
+	float time = glfwGetTime();
 	//0.0284 seconds to build vertex octree
 	for (int i = 0; i < vertices.size(); i++) {
 		addVertex(i);
@@ -339,7 +332,7 @@ Octree::Octree(std::vector<Mesh> &meshes)
 	std::cout << "Time to insert vertices: " << glfwGetTime() - time << std::endl;
 
 	time = glfwGetTime();
-	for (int i = 0; i < faces.size(); i += 3) {
+	for (int i = 0; i < (*faces).size(); i += 3) {
 		//TODO: add faces
 		//addFace(i);
 	}
@@ -353,180 +346,19 @@ Octree::~Octree()
 	delete faceRoot;
 }
 
-void Octree::removeDuplicateVertices(std::vector<Mesh> &meshes)
-{
-	
-	int translateSize = 0, indicesSize = 0;
-	for (Mesh mesh : meshes) { // Low priority: slow
-		translateSize += mesh.vertices.size();
-		indicesSize += mesh.indices.size();
-	}
-
-	std::vector<int> translate;
-	translate = constructUniqueVertices(translateSize, meshes);
-
-	//translate faces into new indices
-	faces.reserve(indicesSize);
-	int offset = 0;
-	for (int i = 0; i < meshes.size(); i++) {
-		for (int j : meshes[i].indices) {
-			faces.push_back(translate[j + offset]); // Low priority: slow
-		}
-		offset += meshes[i].vertices.size();
-	}
-}
-
-std::vector<int> Octree::constructUniqueVertices(int size, std::vector<Mesh> &meshes)
-{
-	std::vector<int> translate;
-	translate.reserve(size);
-	std::unordered_multimap<float, int> vertexMap;
-	int vIndex = 0;
-
-	for (int i = 0; i < meshes.size(); i++) {
-		Mesh *mesh = &meshes[i];
-		for (Vertex v : mesh->vertices) {
-			bool notFound = true;
-			float key = v.Position.x;
-			auto range = vertexMap.equal_range(key); 
-
-			//check vertexMap for key, find any equal vertices
-			for (auto r = range.first; r != range.second; r++) { 
-				int index = r->second;
-				// if found, set translate[tIndex] = value
-				if (pointsEqual(v.Position, vertices[index].Position)) {
-					translate.push_back(index);
-					notFound = false;
-					break;
-				}
-			}
-			//if not found, insert this point and set translate[tIndex] = vIndex
-			if (notFound) {
-				translate.push_back(vIndex);
-				vertexMap.insert(std::pair<float, int>(key, vIndex));
-				vertices.push_back(v);
-				vIndex++;
-			}
-		}
-	}
-
-	return translate;
-}
-
-bool Octree::pointsEqual(glm::vec3 p, glm::vec3 q)
-{
-	//return !glm::all(glm::equal(q, p));
-	bool a = false;
-	bool b = false;
-	bool c = false;
-	if (std::abs(p.x - q.x) == 0.0) {
-		a = true;
-	}
-	if (std::abs(p.y - q.y) == 0.0) {
-		b = true;
-	}
-	if (std::abs(p.z - q.z) == 0.0) {
-		c = true;
-	}
-
-	return (a && b && c);
-}
-
-void Octree::removeDuplicateFaces()
-{
-	// Faster to replace faces than delete individual faces.
-	std::vector<unsigned int> newFaces; 
-	std::unordered_multimap<int, int> faceMap;
-
-	int fIndex = 0;
-	for (int i = 0; i < faces.size(); i += 3) {
-		bool notFound = true;
-		int key = faces[i];
-		auto range = faceMap.equal_range(key); 
-
-		//check faceMap for key, then find any equal faces
-		for (auto r = range.first; r != range.second; r++) {
-			int index = r->second;
-
-			if ((faces[i + 1] == newFaces[index]) && (faces[i + 2] == newFaces[index + 1])) {
-				notFound = false;
-				break;
-			}
-		}
-
-		//if not found, insert this face
-		if (notFound) {
-			faceMap.insert(std::pair<int, int>(key, fIndex + 1)); 
-			newFaces.push_back(key); 
-			newFaces.push_back(faces[i + 1]);
-			newFaces.push_back(faces[i + 2]);
-			fIndex += 3;
-		}
-	}
-
-	faces = newFaces;
-}
-
-void Octree::getRange()
-{
-	float deltaX = 0.0, deltaY = 0.0, deltaZ = 0.0;
-	for (Vertex v : vertices) {
-		glm::vec3 *vert = &(v.Position);
-
-		int t = std::abs(vert->x);
-		if (t > deltaX)
-			deltaX = t;
-		t = std::abs(vert->y);
-		if (t > deltaY)
-			deltaY = t;
-		t = std::abs(vert->z);
-		if (t > deltaZ)
-			deltaZ = t;
-	}
-
-	range = 2.0 * std::max({ deltaX, deltaY, deltaZ });
-}
-
-void Octree::oldGetRange()
-{
-	float maxX = 0, minX = 0;
-	float maxY = 0, minY = 0;
-	float maxZ = 0, minZ = 0;
-
-	for (Vertex v : vertices) {
-		glm::vec3 *vert = &(v.Position);
-
-		if (vert->x > maxX)
-			maxX = vert->x;
-		if (vert->x < minX)
-			minX = vert->x;
-
-		if (vert->y > maxY)
-			maxY = vert->y;
-		if (vert->y < minY)
-			minY = vert->y;
-
-		if (vert->z > maxZ)
-			maxZ = vert->z;
-		if (vert->z < minZ)
-			minZ = vert->z;
-		
-	}
-
-	range = std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
-}
-
 void Octree::addVertex(int index)
 {
-	root->add(vertices[index].Position, index, vertices);
+	// TODO: return early for identical verts
+	// build on top of root if position > range
+	root->add(vertices[index]->Position, index, vertices);
 }
 
 void Octree::addFace(int index) {
 	glm::vec3 vertex0, vertex1, vertex2, edge1, edge2, center;
 
-	vertex0 = vertices[faces[index]].Position;
-	vertex1 = vertices[faces[index + 1]].Position;
-	vertex2 = vertices[faces[index + 2]].Position;
+	vertex0 = vertices[(*faces)[index]]->Position;
+	vertex1 = vertices[(*faces)[index + 1]]->Position;
+	vertex2 = vertices[(*faces)[index + 2]]->Position;
 
 	edge1 = vertex1 - vertex0;
 	edge2 = vertex2 - vertex0;
@@ -549,7 +381,7 @@ void Octree::addFace(int index) {
 
 glm::vec3 Octree::getNearest(glm::vec3 p)
 {
-	Cell leaf = root->find(p);
+	Octant leaf = root->find(p);
 	float r = leaf.range; 
 	glm::vec3 *p1 = NULL;
 	glm::vec3 *p2 = NULL;
@@ -557,7 +389,7 @@ glm::vec3 Octree::getNearest(glm::vec3 p)
 
 	if (leaf.points.size() > 0 && leaf.children.size() < 1) {
 		for (int index : leaf.points) {
-			glm::vec3 t = vertices[index].Position;
+			glm::vec3 t = vertices[index]->Position;
 			if (glm::all(glm::equal(t, p))) {
 				p1 = &t;
 				d1 = glm::distance(t, p);
@@ -569,7 +401,7 @@ glm::vec3 Octree::getNearest(glm::vec3 p)
 		r *= 2.0;
 		std::vector<int> nearby = root->getPoints(p, r, 0.0, vertices);
 		for (int i : nearby) {
-			p2 = &vertices[i].Position;
+			p2 = &vertices[i]->Position;
 			float d2 = glm::distance(*p2, p);
 			if (!p1 || d2 < d1) {
 				p1 = p2;
@@ -592,10 +424,16 @@ bool Octree::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 	return faceRoot->intersects(rayOrigin, rayEnd, doubleSize);
 }
 
-Node::Node(int index, glm::vec3 pos, glm::vec3 norm) : 
-	ID(index), position(pos), normal(norm)
+Node::Node(int index, Vertex v) :
+	ID(index), vertex(v)
 {
 
+}
+
+Node::Node(int index, glm::vec3 pos, glm::vec3 norm, bool wireframe) :
+	ID(index)
+{
+	vertex = Vertex(pos, norm, wireframe);
 }
 
 void Node::addConnection(int index)
@@ -608,23 +446,15 @@ void Node::addFace(int face)
 	faces.insert(face);
 }
 
-Graph::Graph(Model model)
+Graph::Graph(const Model &model)
 {
-	modelRef = &model;
-	octree = new Octree(model.meshes);
-	nodes.reserve(octree->vertices.size());
-
-	int i = 0;
-	for (Vertex &v : octree->vertices) {
-		nodes.push_back(new Node(i, v.Position, v.Normal));
-		i++;
-	}
+	float time = glfwGetTime();
+	//0.131 seconds to remove vertices
+	ConcatenateModelMeshes(model);
+	std::cout << "Time to simplify Mesh: " << glfwGetTime() - time << std::endl;
 
 	// Populate every node with its faces and connections:
-	std::vector<ordered_set> connections;
-	populateFaces();
-	populateConnections(connections);
-	addConnections(connections);
+	populateConnections();
 
 	//float time = glfwGetTime();
 	//WARNING: recalculating normals breaks manifold.
@@ -635,27 +465,169 @@ Graph::Graph(Model model)
 Graph::Graph(std::vector<Node*> newNodes, std::vector<Face*> faces) 
 	: nodes(newNodes), faceVector(faces)
 {
-	octree = NULL; // TODO: build octree
-	modelRef = NULL;
+
 }
 
 Graph::~Graph()
 {
 	delete(octree);
 	for (Face *f : faceVector) {
-		//delete(f);
+		delete(f);
 	}
 }
 
-void Graph::populateConnections(std::vector<ordered_set> &connections) 
+
+void Graph::ConcatenateModelMeshes(const Model &model)
 {
-	std::vector<unsigned int> faces = octree->faces;
+	std::vector<Mesh> meshes;
+	for (Mesh m : model.meshes) {
+		meshes.push_back(m);
+	}
+
+	int translateSize = 0, indicesSize = 0;
+	for (Mesh mesh : meshes) { 
+		translateSize += mesh.vertices.size();
+		indicesSize += mesh.indices.size();
+	}
+
+	std::vector<int> translate;
+	translate = constructUniqueVertices(translateSize, meshes);
+	constructUniqueFaces(indicesSize, translate, meshes);
+}
+
+std::vector<int> Graph::constructUniqueVertices(int size, std::vector<Mesh> &meshes)
+{
+	std::vector<int> translate;
+	translate.reserve(size);
+	std::unordered_multimap<float, int> vertexMap;
+	int vIndex = 0;
+
+	for (int i = 0; i < meshes.size(); i++) {
+		Mesh *mesh = &meshes[i];
+		for (Vertex v : mesh->vertices) {
+			bool notFound = true;
+			float key = v.Position.x;
+			auto range = vertexMap.equal_range(key);
+
+			//check vertexMap for key, find any equal vertices
+			for (auto r = range.first; r != range.second; r++) {
+				int index = r->second;
+				// if found, set translate[tIndex] = value
+				if (pointsEqual(v.Position, nodes[index]->vertex.Position)) {
+					translate.push_back(index);
+					notFound = false;
+					break;
+				}
+			}
+			//if not found, insert this point and set translate[tIndex] = vIndex
+			if (notFound) {
+				translate.push_back(vIndex);
+				vertexMap.insert(std::pair<float, int>(key, vIndex));
+				nodes.push_back(new Node(vIndex, v));
+				vIndex++;
+			}
+		}
+	}
+
+	return translate;
+}
+
+void Graph::constructUniqueFaces(int size, std::vector<int> &translate, std::vector<Mesh> &meshes)
+{
+	std::vector<unsigned int> indices;
+	indices.reserve(size);
+	int offset = 0;
+	for (int i = 0; i < meshes.size(); i++) {
+		for (int j : meshes[i].indices) {
+			indices.push_back(translate[j + offset]);
+		}
+		offset += meshes[i].vertices.size();
+	}
+
+	std::unordered_multimap<int, Face*> faceMap;
+	for (int i = 0; i < indices.size(); i += 3) {
+		bool notFound = true;
+		int key = indices[i];
+		auto range = faceMap.equal_range(key);
+
+		//check faceMap for key, then find any equal faces
+		for (auto r = range.first; r != range.second; r++) {
+			Face *f = r->second;
+			if ((indices[i + 1] == f->v2) && (indices[i + 2] == f->v3)) {
+				notFound = false;
+				break;
+			}
+		}
+
+		//if not found, insert this face
+		if (notFound) {
+			Face *face = new Face(key, indices[i + 1], indices[i + 2], nodes);
+			faceMap.insert(std::pair<int, Face*>(key, face));
+
+			int indexOfLastFace = faceVector.size();
+			faceVector.push_back(face);
+			nodes[face->v1]->addFace(indexOfLastFace);
+			nodes[face->v2]->addFace(indexOfLastFace);
+			nodes[face->v3]->addFace(indexOfLastFace);
+		}
+	}
+}
+
+bool Graph::pointsEqual(glm::vec3 p, glm::vec3 q)
+{
+	//return !glm::all(glm::equal(q, p));
+	bool a = false;
+	bool b = false;
+	bool c = false;
+	if (std::abs(p.x - q.x) == 0.0) {
+		a = true;
+	}
+	if (std::abs(p.y - q.y) == 0.0) {
+		b = true;
+	}
+	if (std::abs(p.z - q.z) == 0.0) {
+		c = true;
+	}
+
+	return (a && b && c);
+}
+
+void Graph::buildOctree()
+{
+	octree = new Octree(&nodes, &faceVector, getRange());
+}
+
+float Graph::getRange()
+{
+	if (Range <= 0.0) {
+		float deltaX = 0.0, deltaY = 0.0, deltaZ = 0.0;
+		for (Node *n : nodes) {
+			glm::vec3 *vert = &(n->vertex.Position);
+
+			int t = std::abs(vert->x);
+			if (t > deltaX)
+				deltaX = t;
+			t = std::abs(vert->y);
+			if (t > deltaY)
+				deltaY = t;
+			t = std::abs(vert->z);
+			if (t > deltaZ)
+				deltaZ = t;
+		}
+
+		Range = 2.0 * std::max({ deltaX, deltaY, deltaZ });
+	}
+	return Range;
+}
+
+void Graph::populateConnections() 
+{
+	std::vector<ordered_set> connections;
 	connections.assign(nodes.size(), ordered_set());
-	int size = faces.size();
-	for (int i = 0; i < size; i += 3) {
-		int a = faces[i];
-		int b = faces[i + 1];
-		int c = faces[i + 2];
+	for (int i = 0; i < faceVector.size(); i += 3) {
+		int a = faceVector[i]->v1;
+		int b = faceVector[i]->v2;
+		int c = faceVector[i]->v3;
 
 		connections[a].insert(b);
 		connections[a].insert(c);
@@ -668,26 +640,7 @@ void Graph::populateConnections(std::vector<ordered_set> &connections)
 		connections[c].insert(b);
 		connections[c].insert(a);
 	}
-}
 
-void Graph::populateFaces() 
-{
-	std::vector<unsigned int> faces = octree->faces;
-	faceVector.reserve(std::ceil(faces.size() / 3.0));
-
-	for (int i = 0; i < faces.size(); i += 3) {
-		faceVector.push_back(new Face(faces[i], faces[i + 1], faces[i + 2], octree->vertices));
-	}
-
-	for (int face = 0; face < faceVector.size(); face++) {
-		nodes[faceVector[face]->v1]->addFace(face);
-		nodes[faceVector[face]->v2]->addFace(face);
-		nodes[faceVector[face]->v3]->addFace(face);
-	}
-}
-
-void Graph::addConnections(std::vector<ordered_set> connections)
-{
 	for (int n = 0; n < nodes.size(); n++) {
 		for (int i : connections[n].vector) {
 			if (n != i)
@@ -698,19 +651,25 @@ void Graph::addConnections(std::vector<ordered_set> connections)
 
 void Graph::recalculateNormalsFromFaces()
 {
-	// this generates invalid normals, which are then not rendered.  Reason unknown.
+	int invalid = 0;
+	// this generates invalid normals for some models, which are then not rendered.  Reason unknown.
 	for (int n = 0; n < nodes.size(); n++) {
 		std::vector<int> tvect;
 		for (int face : nodes[n]->faces) {
 			tvect.push_back(face);
 		}
-		glm::vec3 tNormal = faceVector[tvect[0]]->normal;
-		for (int i = 1; i < tvect.size(); i++) {
-			tNormal = tNormal + glm::normalize(faceVector[tvect[i]]->normal);
-		}
-		glm::vec3 newNormal = glm::normalize(tNormal);
 
-		nodes[n]->normal = newNormal;
+		if (tvect.size() > 0 && faceVector[tvect[0]]) {
+			glm::vec3 tNormal = faceVector[tvect[0]]->normal;
+			for (int i = 1; i < tvect.size(); i++) {
+				tNormal = tNormal + glm::normalize(faceVector[tvect[i]]->normal);
+			}
+			glm::vec3 newNormal = glm::normalize(tNormal);
+
+			nodes[n]->vertex.Normal = newNormal;
+		} else {
+			invalid++; //vertex has no faces.
+		}
 	}
 }
 
@@ -724,9 +683,9 @@ void Graph::scale(float displacement)
 		//for each associated face
 			// find intersect of face plane and vertex normal
 			// dist = std::max(dist, intersection);
-		glm::vec3 pos = n->position;
-		glm::vec3 norm = n->normal;
-		n->position = pos + (norm * displacement);
+		glm::vec3 pos = n->vertex.Position;
+		glm::vec3 norm = n->vertex.Normal;
+		n->vertex.Position = pos + (norm * displacement);
 	}
 }
 
@@ -815,27 +774,27 @@ void Graph::CombineFaces(int n1, int n2, Node *node)
 
 Node* Graph::nodeFromAverage(Node* n1, Node* n2)
 {
-	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
-	glm::vec3 pos = (n1->position + n2->position) * 0.5f;
+	glm::vec3 norm = glm::normalize(n1->vertex.Normal + n2->vertex.Normal);
+	glm::vec3 pos = (n1->vertex.Position + n2->vertex.Position) * 0.5f;
 
-	return new Node(nodes.size(), pos, norm);
+	return new Node(nodes.size(), pos, norm, false);
 }
 
 Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 {
 	// TODO: create node based on intercepts with farthest face plane
 	// (same as scale())
-	glm::vec3 pos = (n1->position + n2->position);
+	glm::vec3 pos = (n1->vertex.Position + n2->vertex.Position);
 	pos *= 0.5;
-	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
+	glm::vec3 norm = glm::normalize(n1->vertex.Normal + n2->vertex.Normal);
 	float distance;
 
-	glm::intersectRayPlane(pos, norm, n1->position, n1->normal, distance);
+	glm::intersectRayPlane(pos, norm, n1->vertex.Position, n1->vertex.Normal, distance);
 	if (distance > 0.0) {
 		pos += norm * distance;
 	}
 
-	return new Node(nodes.size(), pos, norm);
+	return new Node(nodes.size(), pos, norm, false);
 }
 
 Graph* Graph::ReduceFootprint()
@@ -874,7 +833,7 @@ void Graph::cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &tra
 	}
 
 	for (int n = 0; n < nodeList.size(); n++) {
-		Node *node = new Node(n, nodeList[n]->position, nodeList[n]->normal);
+		Node *node = new Node(n, nodeList[n]->vertex.Position, nodeList[n]->vertex.Normal, false);
 		for (int f : nodeList[n]->faces) {
 			node->faces.insert(f);
 		}

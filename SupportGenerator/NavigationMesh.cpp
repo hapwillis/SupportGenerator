@@ -116,11 +116,11 @@ NavigationMesh::~NavigationMesh()
 
 bool NavigationMesh::loadModel(Model &newModel, float offset, float width) 
 {
-	if (model != &newModel || displacement != offset + (width / 2.0) || supportWidth  != width) {
+	if (model != &newModel || displacement != offset + (width / 2.0f) || supportWidth  != width) {
 		model = &newModel;
-		displacement = offset + (width * 0.5);
+		displacement = offset + (width * 0.5f);
 		supportWidth = width;
-		float time = glfwGetTime();
+		double time = glfwGetTime();
 		// 27.6864 seconds to build graph
 		modelGraph = new Graph(*model);
 		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
@@ -140,53 +140,27 @@ bool NavigationMesh::loadModel(Model &newModel, float offset, float width)
 	return true;
 }
 
-void NavigationMesh::initializeHeap()
+void NavigationMesh::initializeHeap() //Appears to not be handling edges properly
 {
 	if(!edgeHeap.empty()) {
 		edgeHeap = std::priority_queue<Edge>();
 	}
 	EdgeSet edges;
 
-	int indices = modelGraph->octree->faces.size();
-	std::vector<unsigned int> faces = modelGraph->octree->faces;
-	for (int i = 0; i < indices; i += 3) {
-		unsigned int *index = &faces[i];
-		glm::vec3 a = modelGraph->nodes[*index]->position;
-		glm::vec3 b = modelGraph->nodes[*(index + 1)]->position;
-		glm::vec3 c = modelGraph->nodes[*(index + 2)]->position;
+	for (unsigned int i = 0; i < modelGraph->faceVector.size(); i += 3) {
+		Face *face = modelGraph->faceVector[i];
+		glm::vec3 a = modelGraph->nodes[face->v1]->vertex.Position;
+		glm::vec3 b = modelGraph->nodes[face->v2]->vertex.Position;
+		glm::vec3 c = modelGraph->nodes[face->v3]->vertex.Position;
 
-		edges.insert(new EdgeContainer(*index, *(index + 1), a, b));
-		edges.insert(new EdgeContainer(*(index + 1), *(index + 2), b, c));
-		edges.insert(new EdgeContainer(*(index + 2), *index, c, a));
+		edges.insert(new EdgeContainer(face->v1, face->v2, a, b));
+		edges.insert(new EdgeContainer(face->v2, face->v3, b, c));
+		edges.insert(new EdgeContainer(face->v3, face->v1, c, a));
 	}
 
 	// Insert the unique edges to a heap
 	for (EdgeContainer *e : edges.edges) {
 		edgeHeap.push(Edge(e->indexA, e->indexB, e->len));
-	}
-}
-
-void NavigationMesh::getUniqueEdges(std::priority_queue<Edge> &edgeHeap)
-{
-	// Get initial edges from faces
-	// Insert into unordered set to remove duplicates
-	std::unordered_set<EdgeContainer, KeyFuncs, KeyFuncs> edges;
-	int indices = modelGraph->octree->faces.size();
-	std::vector<unsigned int> faces = modelGraph->octree->faces;
-	for (int i = 0; i < indices; i += 3) {
-		unsigned int *index = &faces[i];
-		glm::vec3 a = modelGraph->nodes[*index]->position;
-		glm::vec3 b = modelGraph->nodes[*(index + 1)]->position;
-		glm::vec3 c = modelGraph->nodes[*(index + 2)]->position;
-
-		edges.insert(EdgeContainer(*index, *(index + 1), a, b));
-		edges.insert(EdgeContainer(*(index + 1), *(index + 2), b, c));
-		edges.insert(EdgeContainer(*(index + 2), *index, c, a));
-	}
-
-	// Insert the unique edges to a heap
-	for (const EdgeContainer &e : edges) {
-		edgeHeap.push(Edge(e.indexA, e.indexB, e.len));
 	}
 }
 
@@ -196,8 +170,8 @@ Graph* NavigationMesh::decimateMesh()
 
 	int mismatches = 0;
 
-	float minLength = supportWidth * 0.25;
-	float smallestEdge = minLength - 1.0;
+	float minLength = supportWidth * 0.25f;
+	float smallestEdge = minLength - 1.0f;
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge e = edgeHeap.top();
@@ -209,13 +183,13 @@ Graph* NavigationMesh::decimateMesh()
 		smallestEdge = e.length;
 
 		int newIndex = modelGraph->CombineNodes(e.indexA, e.indexB);
-		glm::vec3 a = modelGraph->nodes[newIndex]->position;
+		glm::vec3 a = modelGraph->nodes[newIndex]->vertex.Position;
 
 		//	add all the new edges to the minheap
 		for (int connection : modelGraph->nodes[newIndex]->connections) {
 			Node *node = modelGraph->nodes[connection];
 			if (node) {
-				glm::vec3 b = node->position;
+				glm::vec3 b = node->vertex.Position;
 				float length = glm::distance(a, b);
 		
 				edgeHeap.push(Edge(newIndex, connection, length));
@@ -233,7 +207,7 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph)
 	vertices.reserve(graph->nodes.size());
 
 	for (Node *node : graph->nodes) {
-		vertices.push_back(Vertex(node->position, node->normal, 1.0));
+		vertices.push_back(Vertex(node->vertex.Position, node->vertex.Normal, 1.0));
 	}
 
 	std::vector<unsigned int> indices;
