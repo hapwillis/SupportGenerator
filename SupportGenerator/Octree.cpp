@@ -608,10 +608,6 @@ void Node::addFace(int face)
 	faces.insert(face);
 }
 
-void Node::updateNormal(glm::vec3 n) {
-	normal = n;
-}
-
 Graph::Graph(Model model)
 {
 	modelRef = &model;
@@ -628,32 +624,11 @@ Graph::Graph(Model model)
 	std::vector<ordered_set> connections;
 	populateFaces();
 	populateConnections(connections);
-
-	float time = glfwGetTime();
-	//orderConnections(connections);
 	addConnections(connections);
-	std::cout << "Time to order connections: " << glfwGetTime() - time << std::endl;
 
-	std::vector<glm::vec3> normals;
-	for (Node *n : nodes) {
-		normals.push_back(n->normal);
-	}
-
-	time = glfwGetTime();
-	//recalculateNormals();
+	//float time = glfwGetTime();
 	//recalculateNormalsFromFaces();
-	std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
-
-	int invalidNormals = 0;
-	for (Node *n : nodes) {
-		if (glm::length(n->normal) > 1.0) {
-			invalidNormals++;
-		}
-		else {
-			//if (glm::angle(normals[]))
-		}
-	}
-	std::cout << "Unusual normals: " << invalidNormals << std::endl;
+	//std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
 }
 
 Graph::Graph(std::vector<Node*> newNodes, std::vector<Face*> faces) 
@@ -703,9 +678,6 @@ void Graph::populateFaces()
 		faceVector.push_back(new Face(faces[i], faces[i + 1], faces[i + 2], octree->vertices));
 	}
 
-	std::cout << "number of faces: " << faceVector.size() << std::endl;
-	std::cout << "number of vertices: " << nodes.size() << std::endl;
-
 	for (int face = 0; face < faceVector.size(); face++) {
 		nodes[faceVector[face]->v1]->addFace(face);
 		nodes[faceVector[face]->v2]->addFace(face);
@@ -723,85 +695,13 @@ void Graph::addConnections(std::vector<ordered_set> connections)
 	}
 }
 
-void Graph::orderConnections(std::vector<ordered_set> connections)
-{
-	int brokenVerts = 0;
-
-	for (int n = 0; n < nodes.size(); n++) {
-		std::vector<int> nodeConnections;
-		nodeConnections.reserve(connections[n].size());
-		// we know the first two connections should be correctly ordered:
-		nodeConnections.push_back(connections[n].popFromSet());
-		nodeConnections.push_back(connections[n].popFromSet());
-		bool brokenVert = false;
-
-		while (!connections[n].set.empty()) {
-			int last = nodeConnections.back();
-			for (int i : connections[nodeConnections.back()].vector) {
-				if (connections[n].set.count(i) == 1) {
-					nodeConnections.push_back(i);
-					connections[n].set.erase(i);
-					break;
-				}
-			}
-			if (last == nodeConnections.back()) {
-				brokenVerts++;
-				brokenVert = true;
-				break;
-			}
-				
-		}
-
-		if (brokenVert) {
-			for (int i : connections[n].vector) {
-				nodes[n]->addConnection(i);
-			}
-		}
-		else {
-			for (int i : nodeConnections) {
-				nodes[n]->addConnection(i);
-			}
-		}
-	}
-
-	std::cout << "Unable to rebuild " << brokenVerts << " connections." << std::endl;
-}
-
-void Graph::recalculateNormals()
-{
-	// recalculate face-weighted normals
-	for (int n = 0; n < nodes.size(); n++) {
-		Node *node = nodes[n];
-		glm::vec3 p = node->position;
-		int last = node->connections.size() - 1;
-		glm::vec3 e1 = nodes[node->connections[last]]->position - p;
-		glm::vec3 e2 = nodes[node->connections[0]]->position - p;
-		glm::vec3 faceNormal = glm::normalize(glm::cross(e1, e2));
-
-		for (int i = 0; i < node->connections.size() - 1; i++) {
-			e1 = nodes[node->connections[i]]->position - p;
-			e2 = nodes[node->connections[i + 1]]->position - p;
-			faceNormal += glm::normalize(glm::cross(e1, e2));
-		}
-
-		faceNormal = glm::normalize(faceNormal);
-		if (glm::dot(nodes[n]->normal, faceNormal) > 0) {
-			nodes[n]->normal = faceNormal;
-		} else {
-			nodes[n]->normal = -faceNormal;
-		}
-	}
-}
-
 void Graph::recalculateNormalsFromFaces()
 {
 	// this generates invalid normals, which are then not rendered.  Reason unknown.
 	for (int n = 0; n < nodes.size(); n++) {
-		//glm::vec3 newNormal = glm::vec3(0.0f, 0.0f, 0.0f);
 		std::vector<int> tvect;
 		for (int face : nodes[n]->faces) {
 			tvect.push_back(face);
-			//newNormal += faceVector[face]->normal;
 		}
 		glm::vec3 tNormal = faceVector[tvect[0]]->normal;
 		for (int i = 1; i < tvect.size(); i++) {
@@ -809,34 +709,7 @@ void Graph::recalculateNormalsFromFaces()
 		}
 		glm::vec3 newNormal = glm::normalize(tNormal);
 
-		nodes[n]->updateNormal(newNormal);
-	}
-}
-
-void Graph::recalculateNormalsFaceWeight()
-{
-	// recalculate face-weighted normals
-	for (int n = 0; n < nodes.size(); n++) {
-		Node *node = nodes[n];
-		glm::vec3 p = node->position;
-		int last = node->connections.size() - 1;
-		glm::vec3 e1 = nodes[node->connections[last]]->position - p;
-		glm::vec3 e2 = nodes[node->connections[0]]->position - p;
-		glm::vec3 faceNormal = glm::cross(e1, e2);
-
-		for (int i = 0; i < node->connections.size() - 1; i++) {
-			e1 = nodes[node->connections[i]]->position - p;
-			e2 = nodes[node->connections[i + 1]]->position - p;
-			faceNormal += glm::cross(e1, e2);
-		}
-
-		faceNormal = glm::normalize(faceNormal);
-		if (glm::dot(nodes[n]->normal, faceNormal) > 0) {
-			nodes[n]->normal = faceNormal;
-		}
-		else {
-			nodes[n]->normal = -faceNormal;
-		}
+		nodes[n]->normal = newNormal;
 	}
 }
 
@@ -947,21 +820,9 @@ Node* Graph::nodeFromAverage(Node* n1, Node* n2)
 	return new Node(nodes.size(), pos, norm);
 }
 
-Node* Graph::nodeFromPreservedEdges(Node* n1, Node* n2)
-{
-	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
-	float dot1 = glm::dot(n1->normal, norm);
-	float dot2 = glm::dot(n2->normal, norm);
-
-	if (dot1 > dot2)
-		return new Node(nodes.size(), n1->position, norm);
-
-	return new Node(nodes.size(), n2->position, norm);
-}
-
 Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 {
-	// fix this- vertex position isn't great
+	// TODO: 
 	glm::vec3 pos = (n1->position + n2->position);
 	pos *= 0.5;
 	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);

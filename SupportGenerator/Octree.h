@@ -131,7 +131,6 @@ public:
 
 	void addConnection(int index);
 	void addFace(int face);
-	void updateNormal(glm::vec3 n);
 };
 
 class Graph
@@ -150,19 +149,19 @@ public:
 	void populateFaces();
 	void populateConnections(std::vector<ordered_set> &connections);
 	void addConnections(std::vector<ordered_set> connections);
-	void orderConnections(std::vector<ordered_set> connections);
-	void recalculateNormals();
+
 	void recalculateNormalsFromFaces();
-	void recalculateNormalsFaceWeight();
 	void scale(float displacement);
+
 	int CombineNodes(int n1, int n2);
 	void CombineConnections(int n1, int n2, Node *node);
 	void CombineFaces(int n1, int n2, Node *node);
 	Node* nodeFromAverage(Node* n1, Node* n2);
 	Node* nodeFromIntercept(Node* n1, Node* n2);
-	Node* nodeFromPreservedEdges(Node* n1, Node* n2);
+
 	Graph* ReduceFootprint();
 	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
 	std::vector<Face*> cleanFaces(std::vector<Node*> &nodeList, std::vector<int> &translate);
+
 	bool verifyFacesFromConnections(int node);
 };

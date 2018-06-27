@@ -228,49 +228,18 @@ Graph* NavigationMesh::decimateMesh()
 
 Mesh* NavigationMesh::convertToMesh(Graph *graph)
 {
+	//graph->recalculateNormalsFromFaces();
 	std::vector<Vertex> vertices;
 	vertices.reserve(graph->nodes.size());
-
-	//graph->recalculateNormalsFromFaces();
 
 	for (Node *node : graph->nodes) {
 		vertices.push_back(Vertex(node->position, node->normal));
 	}
 
 	std::vector<unsigned int> indices;
-	//windFaces(graph->nodes, indices);
 	facesToIndices(graph, indices);
 
 	return new Mesh(vertices, indices);
-}
-
-void NavigationMesh::windFaces(std::vector<Node*> &nodes, std::vector<unsigned int> &indices)
-{
-	int fnum = 0;
-	//Not quite the fastest way to do this, but it's easy.
-	for (int i = 0; i < nodes.size(); i++) {
-		//for each node, make a list of each connection to a higher index
-		for (int v2 : nodes[i]->connections) {
-			if (i < v2) {
-				//do the same for each of *those*
-				for (int v3 : nodes[v2]->connections) {
-					if (v2 < v3) {
-						//check if this vertex connects to the original vertex
-						for (int v1 : nodes[v3]->connections) {
-							if (v1 == i) { //add face
-								fnum++;
-								indices.push_back(v1);
-								indices.push_back(v2);
-								indices.push_back(v3);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	std::cout << "number of faces: " << fnum << std::endl;
-	std::cout << "number of vertices: " << nodes.size() << std::endl;
 }
 
 void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)

@@ -60,7 +60,6 @@ private:
 	void initializeHeap();
 	void getUniqueEdges(std::priority_queue<Edge> &edgeHeap);
 	Graph* decimateMesh();
-	void windFaces(std::vector<Node*> &nodes, std::vector<unsigned int> &indices);
 	void facesToIndices(Graph *graph, std::vector<unsigned int> &indices);
 	bool edgeValid(Edge edge, Graph *graph);
 };
