@@ -83,7 +83,6 @@ DefaultShader::DefaultShader(const char* vertexPath, const char* fragmentPath, c
 		glDeleteShader(geometry);
 }
 
-
 DefaultShader::~DefaultShader()
 {
 }

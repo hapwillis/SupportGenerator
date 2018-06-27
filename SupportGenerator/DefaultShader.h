@@ -13,7 +13,7 @@ public:
 	unsigned int ID;
 
 	DefaultShader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr);
-	
+
 	~DefaultShader();
 
 	void use();

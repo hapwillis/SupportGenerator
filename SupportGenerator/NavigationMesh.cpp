@@ -228,12 +228,12 @@ Graph* NavigationMesh::decimateMesh()
 
 Mesh* NavigationMesh::convertToMesh(Graph *graph)
 {
-	//graph->recalculateNormalsFromFaces();
+	graph->recalculateNormalsFromFaces();
 	std::vector<Vertex> vertices;
 	vertices.reserve(graph->nodes.size());
 
 	for (Node *node : graph->nodes) {
-		vertices.push_back(Vertex(node->position, node->normal));
+		vertices.push_back(Vertex(node->position, node->normal, 1.0));
 	}
 
 	std::vector<unsigned int> indices;

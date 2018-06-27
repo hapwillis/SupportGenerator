@@ -2,10 +2,10 @@
 
 Vertex::Vertex()
 {
-
+	Wireframe = 0.0;
 }
 
-Vertex::Vertex(glm::vec3 p, glm::vec3 n) : Position(p), Normal(n)
+Vertex::Vertex(glm::vec3 p, glm::vec3 n, float wireframe) : Position(p), Normal(n), Wireframe(wireframe)
 {
 
 }
@@ -27,7 +27,7 @@ void Mesh::Draw(DefaultShader shader)
 	glBindVertexArray(0);
 }
 
-void Mesh::setupMesh() 
+void Mesh::setupMesh()
 {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -51,6 +51,8 @@ void Mesh::setupMesh()
 	// vertex normals
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Wireframe));
 	glBindVertexArray(0);
 }
 
@@ -186,6 +188,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		vector.y = norm->y;
 		vector.z = norm->z;
 		vertex.Normal = vector;
+		vertex.Wireframe = 0.0f;
 
 		vertices[i] = vertex; //still slow
 	}

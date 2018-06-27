@@ -21,9 +21,10 @@ struct Vertex {
 	glm::vec3 Position;
 	// normal
 	glm::vec3 Normal;
+	float Wireframe;
 
 	Vertex();
-	Vertex(glm::vec3 p, glm::vec3 n);
+	Vertex(glm::vec3 p, glm::vec3 n, float wireframe);
 };
 
 class Mesh {
@@ -36,6 +37,7 @@ public:
 	/*  Functions  */
 	// constructor
 	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices);
+
 
 	void Draw(DefaultShader shader);
 

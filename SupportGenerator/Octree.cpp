@@ -627,7 +627,8 @@ Graph::Graph(Model model)
 	addConnections(connections);
 
 	//float time = glfwGetTime();
-	//recalculateNormalsFromFaces();
+	//WARNING: recalculating normals breaks manifold.
+	recalculateNormalsFromFaces();
 	//std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
 }
 
@@ -822,7 +823,8 @@ Node* Graph::nodeFromAverage(Node* n1, Node* n2)
 
 Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 {
-	// TODO: 
+	// TODO: create node based on intercepts with farthest face plane
+	// (same as scale())
 	glm::vec3 pos = (n1->position + n2->position);
 	pos *= 0.5;
 	glm::vec3 norm = glm::normalize(n1->normal + n2->normal);
