@@ -1,71 +1,98 @@
 #pragma once
 
-#include "Octree.h"
+#define _USE_MATH_DEFINES  
+#include <cmath> 
+#include "Graph.h"
+
+class Cylinder
+{
+public: 
+	int faces;
+	float width;
+	std::vector<glm::vec3> vertices;
+	std::vector<int> indices;
+	glm::vec3 start;
+	glm::vec3 end;
+	const glm::vec3 cosVec = glm::vec3(0.0f, 0.0f, 1.0f);
+	const float pi2 = 2 * M_PI;
+
+	Cylinder(int numSides, float supportWidth);
+	void updateGeometry(glm::vec3 startP, glm::vec3 endP);
+	void genVerts(glm::vec3 sinVec, glm::vec3 center);
+	void genIndices();
+};
 
 class PFNode
 {
 public:
-	Node * node;
-	int cost;
+	Node *node;
+	float costToStart;
+	float costToEnd;
+	float pathCost;
+	PFNode *parent = NULL;
+	bool seesBed;
+	glm::vec3 bedConnection;
 
-	PFNode();
+	PFNode(Node *aNode);
 	~PFNode();
-
-};
-
-class PathFindingGraph
-{
-public:
-	Graph *graph;
-	std::vector<PFNode*> nodes;
-
-	PathFindingGraph();
-	~PathFindingGraph();
 
 };
 
 class Path
 {
 public:
-	std::vector<glm::vec3> path;
-	int maxOverhang;
+	std::vector<PFNode*> path;
+	float maxOverhang;
+	float width;
+	int faces = 6;
+	glm::mat4 transform;
 	Mesh *pathGeometry;
-	Mesh *supportGeometry;
+	std::vector<PFNode> *nav;
 	std::priority_queue<PFNode*> open;
+	std::unordered_set<int> seen;
 	std::unordered_set<int> closed;
 
-	Path();
+	Path(std::vector<PFNode> *nodes, float overhang, glm::mat4 model);
 	~Path();
 
+	void addNode(Node *node);
+	void aStar(bool pathFound);
 	void Geometry();
-	void Draw();
+	void Draw(DefaultShader shader);
 
 private:
-	int getCost();
-	void intersection();
-	void cylinder();
+	float getCost(PFNode *node);
+	void restartAStar();
+	void retracePath(PFNode* end);
 };
 
 //SupportPaths comprises pathfinding, the paths themselves, relaxation, and exporting geometry.
 class SupportPaths
 {
 public:
+	Graph *modelGraph;
 	Graph *navGraph;
+	std::vector<PFNode> nodes;
 	std::vector<glm::vec3> points;
+	glm::mat4 transform;
 	float maxOverhang;
-	std::vector<Path> paths;
+	std::vector<Path*> paths;
 
-	SupportPaths(Graph *g, std::vector<glm::vec3> p, float max);
+	std::vector<Mesh*> supportGeometry;
+
+	SupportPaths(Graph *model, Graph *nav, std::vector<glm::vec3> p, float max, float offset);
 	~SupportPaths();
 
 	void FindPaths();
-	void Relax(int degree);
+	void Relax(float degree);
 	void Geometry(int faces, float tipD);
-	void Draw();
+	void Draw(DefaultShader shader);
 
 	void DeleteSupport();
 
 private:
-	void findStartNode(glm::vec3 point);
+	Path* findStartNode(glm::vec3 point);
+	void regroupPaths(); //convert overlapping paths into multiple distinct paths
+	void intersectionGeometry();
 };
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Octree.h"
+#include "Graph.h"
 
 struct Edge {
 	unsigned int indexA;
@@ -41,24 +41,24 @@ class NavigationMesh
 public:
 	unsigned int VAO, VBO, EBO;
 	Model *model = NULL; 
-	float displacement;
-	float supportWidth;
-	Graph *modelGraph = NULL;
-	std::priority_queue<Edge> edgeHeap;
-	Octree *octree = NULL;
-	Graph *navGraph = NULL;
-	Mesh *navMesh = NULL;
+	Graph *graph = NULL; //TODO: rename to graph
+	Mesh *mesh = NULL; //TODO: rename to mesh
+	float displacement; //TODO: remove
+	float supportWidth; //TODO: remove
+	Graph *navGraph = NULL; //TODO: remove
 
 	NavigationMesh();
+	NavigationMesh(Model &model);
 	~NavigationMesh();
 
 	bool loadModel(Model &model, float offset, float width);
-	void Draw(DefaultShader shader);
+	Graph* getSimpleGraph(float offset, float width);
 	Mesh* convertToMesh(Graph *graph);
 	void PruneSubBedVertices(glm::mat4 model);
+	void Draw(DefaultShader shader);
 
 private:
-	void initializeHeap();
+	void initializeHeap(std::priority_queue<Edge> &edgeHeap);
 	Graph* decimateMesh();
 	void facesToIndices(Graph *graph, std::vector<unsigned int> &indices);
 	bool edgeValid(Edge edge, Graph *graph);

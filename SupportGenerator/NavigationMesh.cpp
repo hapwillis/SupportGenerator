@@ -116,42 +116,47 @@ NavigationMesh::~NavigationMesh()
 
 bool NavigationMesh::loadModel(Model &newModel, float offset, float width) 
 {
+	// Move to constructor
 	if (model != &newModel || displacement != offset + (width / 2.0f) || supportWidth  != width) {
 		model = &newModel;
 		displacement = offset + (width * 0.5f);
 		supportWidth = width;
 		double time = glfwGetTime();
 		// 27.6864 seconds to build graph
-		modelGraph = new Graph(*model);
+		graph = new Graph(*model);
 		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
-		time = glfwGetTime();
+		
 
+		// TODO: Get via getSimpleGraph(), only call from outside
+		time = glfwGetTime();
 		// 57.52 seconds to run decimateMesh
 		navGraph = decimateMesh();
 		std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
-		navGraph->scale(offset);
+
+		//TODO: put scale into convertToMesh(), only call from outside
+		navGraph->scale(offset); 
 		time = glfwGetTime();
 
-		navMesh = convertToMesh(navGraph);
+		mesh = convertToMesh(navGraph);
 		std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
 	}
 
 	return true;
 }
 
-void NavigationMesh::initializeHeap() //Appears to not be handling edges properly
+void NavigationMesh::initializeHeap(std::priority_queue<Edge> &edgeHeap) //Appears to not be handling edges properly
 {
 	if(!edgeHeap.empty()) {
 		edgeHeap = std::priority_queue<Edge>();
 	}
 	EdgeSet edges;
 
-	for (unsigned int i = 0; i < modelGraph->faceVector.size(); i += 3) {
-		Face *face = modelGraph->faceVector[i];
-		glm::vec3 a = modelGraph->nodes[face->v1]->vertex.Position;
-		glm::vec3 b = modelGraph->nodes[face->v2]->vertex.Position;
-		glm::vec3 c = modelGraph->nodes[face->v3]->vertex.Position;
+	for (unsigned int i = 0; i < graph->faceVector.size(); i += 3) {
+		Face *face = graph->faceVector[i];
+		glm::vec3 a = graph->nodes[face->v1]->vertex.Position;
+		glm::vec3 b = graph->nodes[face->v2]->vertex.Position;
+		glm::vec3 c = graph->nodes[face->v3]->vertex.Position;
 
 		edges.insert(new EdgeContainer(face->v1, face->v2, a, b));
 		edges.insert(new EdgeContainer(face->v2, face->v3, b, c));
@@ -166,28 +171,27 @@ void NavigationMesh::initializeHeap() //Appears to not be handling edges properl
 
 Graph* NavigationMesh::decimateMesh()
 {
-	initializeHeap(); // TODO: write custom heap that uses pointers
-
-	int mismatches = 0;
+	std::priority_queue<Edge> edgeHeap;
+	initializeHeap(edgeHeap); // TODO: write custom heap that uses pointers
 
 	float minLength = supportWidth * 0.25f;
-	float smallestEdge = minLength - 1.0f;
+	float smallestEdge = minLength - 1.0f; //TODO: remove configuration, set to sane defaults
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge e = edgeHeap.top();
 		edgeHeap.pop();
-		while (!edgeValid(e, modelGraph) && !edgeHeap.empty()) {
+		while (!edgeValid(e, graph) && !edgeHeap.empty()) {
 			e = edgeHeap.top();
 			edgeHeap.pop();
 		}
 		smallestEdge = e.length;
 
-		int newIndex = modelGraph->CombineNodes(e.indexA, e.indexB);
-		glm::vec3 a = modelGraph->nodes[newIndex]->vertex.Position;
+		int newIndex = graph->CombineNodes(e.indexA, e.indexB);
+		glm::vec3 a = graph->nodes[newIndex]->vertex.Position;
 
 		//	add all the new edges to the minheap
-		for (int connection : modelGraph->nodes[newIndex]->connections) {
-			Node *node = modelGraph->nodes[connection];
+		for (int connection : graph->nodes[newIndex]->connections) {
+			Node *node = graph->nodes[connection];
 			if (node) {
 				glm::vec3 b = node->vertex.Position;
 				float length = glm::distance(a, b);
@@ -197,7 +201,7 @@ Graph* NavigationMesh::decimateMesh()
 		}
 	} 
 
-	return modelGraph->ReduceFootprint();
+	return graph->ReduceFootprint();
 }
 
 Mesh* NavigationMesh::convertToMesh(Graph *graph)
@@ -248,9 +252,9 @@ bool NavigationMesh::edgeValid(Edge edge, Graph *graph)
 
 void NavigationMesh::Draw(DefaultShader shader)
 {
-	if (navMesh) {
+	if (mesh) {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		navMesh->Draw(shader);
+		mesh->Draw(shader);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 }

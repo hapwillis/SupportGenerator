@@ -5,8 +5,6 @@
 
 #include <model.h> 
 
-#include <unordered_map>
-#include <unordered_set>
 
 struct ordered_set {
 	std::unordered_set<int> set;
@@ -18,7 +16,20 @@ struct ordered_set {
 	int pop();
 };
 
-class Node;
+class Node
+{
+public:
+	int ID; //serial for each vertex added
+	Vertex vertex;
+	std::vector<int> connections;
+	std::unordered_set<int> faces;
+
+	Node(int index, Vertex v);
+	Node(int index, glm::vec3 pos, glm::vec3 norm, bool wireframe);
+
+	void addConnection(int index);
+	void addFace(int face);
+};
 
 struct Face {
 	const float EPSILON = 0.0000001f;
@@ -57,7 +68,7 @@ struct Octant {
 	glm::vec3 center;
 	float range;
 	std::vector<Octant*> children;
-	std::vector<int> points; //indices of points or faces (first of three indices)
+	std::vector<int> points; //indices of points
 	bool filled;
 
 	Octant(glm::vec3 c, float r);
@@ -87,60 +98,11 @@ public:
 
 	void addVertex(int index);
 	void addFace(int index);
-	glm::vec3 getNearest(glm::vec3 p);
+	Node* getNearestPoint(glm::vec3 p);
+	Face* getNearestFace(glm::vec3 p);
 	std::vector<int> findInRadius(glm::vec3 point, float radius, float minD);
 	// tests an octree of faces for intersection with a line segment
 	// faces stored by lowest index first
 	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd);
-};
-
-class Node
-{
-public:
-	int ID; //serial for each vertex added
-	Vertex vertex;
-	std::vector<int> connections;
-	std::unordered_set<int> faces;
-
-	Node(int index, Vertex v);
-	Node(int index, glm::vec3 pos, glm::vec3 norm, bool wireframe);
-
-	void addConnection(int index);
-	void addFace(int face);
-};
-
-class Graph
-{
-public:
-	Octree *octree;
-	std::vector<Node*> nodes; //addressible by ID
-	std::vector<Face*> faceVector;
-	float Range = 0.0;
-
-	Graph(const Model &model);
-	Graph(std::vector<Node*> newNodes, std::vector<Face*> faces);
-	~Graph();
-
-	void buildOctree();
-	float getRange();
-	void scale(float displacement);
-	void recalculateNormalsFromFaces();
-	int CombineNodes(int n1, int n2);
-	Graph* ReduceFootprint();
-	bool verifyFacesFromConnections(int node);
-
-private:
-	void ConcatenateModelMeshes(const Model &model);
-	std::vector<int> constructUniqueVertices(int size, std::vector<Mesh> &meshes);
-	void constructUniqueFaces(int size, std::vector<int> &translate, std::vector<Mesh> &meshes);
-	void populateConnections();
-	bool pointsEqual(glm::vec3 p, glm::vec3 q);
-
-	Node* nodeFromAverage(Node* n1, Node* n2);
-	Node* nodeFromIntercept(Node* n1, Node* n2);
-	void CombineConnections(int n1, int n2, Node *node);
-	void CombineFaces(int n1, int n2, Node *node);
-
-	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
-	std::vector<Face*> cleanFaces(std::vector<Node*> &nodeList, std::vector<int> &translate);
+	glm::vec3 rayCast(glm::vec3 rayOrigin, glm::vec3 direction); //takes an origin and direction and returns first intersection
 };

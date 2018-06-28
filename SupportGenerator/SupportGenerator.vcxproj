@@ -20,18 +20,21 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ConnectionPoints.cpp" />
     <ClCompile Include="DefaultShader.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="NavigationMesh.cpp" />
     <ClCompile Include="Octree.cpp" />
-    <ClCompile Include="placeSupportPoints.cpp" />
+    <ClCompile Include="Graph.cpp" />
     <ClCompile Include="SupportPaths.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="ConnectionPoints.h" />
     <ClInclude Include="DefaultShader.h" />
+    <ClInclude Include="Graph.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="NavigationMesh.h" />
     <ClInclude Include="Octree.h" />
