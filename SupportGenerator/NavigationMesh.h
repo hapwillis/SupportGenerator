@@ -47,13 +47,12 @@ public:
 	float supportWidth; //TODO: remove
 	Graph *navGraph = NULL; //TODO: remove
 
-	NavigationMesh();
+	NavigationMesh(Model &newModel, float offset, float width);
 	NavigationMesh(Model &model);
 	~NavigationMesh();
 
-	bool loadModel(Model &model, float offset, float width);
 	Graph* getSimpleGraph(float offset, float width);
-	Mesh* convertToMesh(Graph *graph);
+	Mesh* convertToMesh(Graph *graph, float offset);
 	void PruneSubBedVertices(glm::mat4 model);
 	void Draw(DefaultShader shader);
 

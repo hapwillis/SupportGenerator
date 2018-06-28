@@ -2,76 +2,93 @@
 
 
 
-ConnectionPoints::ConnectionPoints()
+ConnectionPoints::ConnectionPoints(Graph *graph) : model(graph)
 {
+	contDistribution = std::uniform_real_distribution<double>(0.0f, 1.0f);
+	intDistribution = std::uniform_int_distribution<int>(0, graph->faceVector.size() - 1);
 
-
-	//var numSeeds = 5; // Must be >> number of disconnected support areas
-	//var centerpoint = [];
-	//var processing = [];
-
-	// IDEA: Option to start at model vertices (ie lowest point)
-	// Llyod's algorithm gives slightly better results at a much lower speed
-	// If overhangs are split, generate one seed point per area
-
-	//var triIndex = 9 * Math.floor(triList.length*Math.random() / 9);
-	//var winningP = randPoint(triIndex); // Random point from random triangle
-	//octree.add(winningP); // Add point to candidates octree
-	//supports.push(winningP); // Add point to list of supports
-	//processing.push(winningP); // Add point to open list
-	//connectorCandidates.push(triList.slice(triIndex, (triIndex + 9)));
-
-	//for (var i = 0; i < numSeeds; i++) {
-	//	for (var k = 0; k < numSeeds; k++) {
-	//		triIndex = 9 * Math.floor(triList.length*Math.random() / 9);
-	//		winningP = randPoint(triIndex); // Get random point + add to open list
-	//		var distance = winningP.distanceTo(octree.findClosest(winningP));
-	//		if (distance > minD) { // Discard if too close to any other point
-	//			octree.add(winningP);
-	//			supports.push(winningP);
-	//			processing.push(winningP);
-	//			connectorCandidates.push(triList.slice(triIndex, (triIndex + 9)));
-	//			k = numSeeds; // Exit loop if point is valid
-	//		}
-	//	}
-	//	while (processing.length > 0) { // While processing[] has points
-	//		console.log("Processing length: " + processing.length);
-	//		var p = processing.pop(); // Pop point from processing[]
-	//		var subset = triOctree.findInRadius(p, radius, minD); // FIXME: This is broken
-	//		for (var k = 0; k < numSeeds; k++) {
-	//			// Note: triIndex not weighted by area (ie big tris are underfilled)
-	//			triIndex = Math.floor(subset.length*Math.random());
-	//			winningP = randPoint(subset[triIndex]);
-	//			// IDEA: Scale with slope, make sure point is within annulus
-	//			var distance = winningP.distanceTo(octree.findClosest(p));
-	//			if ((distance > minD) && (distance < radius)) {
-	//				// Problem: returned point can be > radius fairly easily
-	//				octree.add(winningP);
-	//				supports.push(winningP);
-	//				processing.push(winningP);
-	//				connectorCandidates.push(triList.slice(triIndex, (triIndex + 9)));
-	//			}
-	//		}
-	//	}
-	//	// Optionally if the generated mass is too small, discard these points
-	//}
-
+	//For poisson, must be ># of disconnected support areas
+	// For Mitchell's, seeds = max number of support points
+	const int seeds = 500; 
+	const int maxCandidates = 10;
+	const float maxRadius = 10.0f;
+	
+	points.reserve(seeds);
+	MitchellsBestCandidates(seeds, maxCandidates);
 }
 
 
 ConnectionPoints::~ConnectionPoints()
 {
+
 }
 
-glm::vec3 ConnectionPoints::randomPoint(Face * face)
+void ConnectionPoints::MitchellsBestCandidates(int seeds, int maxCandidates)
 {
-	//var r1 = Math.random();
-	//var r2 = (1 - r1) * Math.random();
-	//var r3 = (1 - r1 - r2);
+	glm::vec3 bestCandidate;
+	float bestDistance;
+	Octree octree;
+	octree.addPoint(randomPoint());
 
-	//var x = r1 * triList[t] + r2 * triList[t + 3] + r3 * triList[t + 6];
-	//var y = r1 * triList[t + 1] + r2 * triList[t + 4] + r3 * triList[t + 7];
-	//var z = r1 * triList[t + 2] + r2 * triList[t + 5] + r3 * triList[t + 8];
+	for (int seed = 0; seed < seeds; seed++) {
+		bestCandidate = randomPoint();
+		bestDistance = prominence(bestCandidate, octree);
+		for (int c = 1; c < maxCandidates; c++) {
+			glm::vec3 candidate = randomPoint();
+			float distance = prominence(candidate, octree);
 
-	return glm::vec3();
+			if (bestDistance < minDist || distance < bestDistance) {
+				bestCandidate = candidate;
+				bestDistance = distance;
+			}
+		}
+
+		if (bestDistance < minDist)
+			points.push_back(bestCandidate);
+	}
+}
+
+void ConnectionPoints::Draw(DefaultShader shader)
+{
+}
+
+Face * ConnectionPoints::randomFace()
+{
+	return model->faceVector[intDistribution(generator)];
+}
+
+glm::vec3 ConnectionPoints::randomPoint()
+{
+	Face *face = randomFace();
+	glm::vec3 v1, e1, tVert, e2, randPoint;
+	float r1 = contDistribution(generator);
+	float r2 = contDistribution(generator);
+
+	v1 = model->nodes[face->v1]->vertex.Position;
+	e1 = model->nodes[face->v2]->vertex.Position - v1;
+	tVert = r1 * e1 + v1;
+
+	e2 = model->nodes[face->v3]->vertex.Position - tVert;
+	randPoint = r2 * e2 + tVert;
+
+	return randPoint;
+}
+
+float ConnectionPoints::prominence(glm::vec3 point, Octree octree)
+{
+	return glm::distance(octree.getNearestPoint(point), point);
+}
+
+glm::vec3 ConnectionPoints::lowestVertex(Face * face)
+{
+	glm::vec3 v1 = model->nodes[face->v1]->vertex.Position;
+	glm::vec3 v2 = model->nodes[face->v2]->vertex.Position;
+	glm::vec3 v3 = model->nodes[face->v3]->vertex.Position;
+	float lowest = std::min(v1.x, v2.x);
+
+	if (v3.x < lowest)
+		return v3;
+	if (v2.x < v1.x)
+		return v2;
+	return v1;
 }

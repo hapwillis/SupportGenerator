@@ -196,7 +196,7 @@ void Path::retracePath(PFNode* end)
 
 	while (backwards.size() > 0) {
 		path.push_back(backwards.back());
-		backwards.pop_back;
+		backwards.pop_back();
 	}
 
 	closed.clear();
@@ -270,7 +270,8 @@ Path* SupportPaths::findStartNode(glm::vec3 point)
 	Node *nodeTwo = new Node(-1, pointTwo, face->normal, true);
 	path->addNode(nodeTwo);
 
-	path->addNode(navGraph->octree->getNearestPoint(pointTwo));
+	int index = navGraph->octree->getNearestNodeIndex(pointTwo);
+	path->addNode(navGraph->nodes[index]);
 
 	return path;
 }

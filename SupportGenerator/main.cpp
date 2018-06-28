@@ -9,6 +9,8 @@
 #include <Octree.h>
 #include <Model.h>
 #include <NavigationMesh.h>
+#include <ConnectionPoints.h>
+#include <SupportPaths.h>
 
 #include <iostream>
 
@@ -30,9 +32,13 @@ int scrWidth = SCR_WIDTH;
 int scrHeight = SCR_HEIGHT;
 Camera camera(FOV, scrWidth, scrHeight, glm::vec3(0.0f, 0.0f, 3.0f));
 
-// Model
+// context:
+int processStep = 0;
 Model* model = {0};
 NavigationMesh *navMesh = { 0 };
+Graph *navGraph = { 0 };
+ConnectionPoints *connections = { 0 };
+SupportPaths *paths = { 0 };
 
 int main()
 {
@@ -144,6 +150,12 @@ int main()
 		if (navMesh)
 			navMesh->Draw(shader); 
 
+		if (connections)
+			connections->Draw(shader);
+
+		if (paths)
+			paths->Draw(shader);
+
 		//NB that spreading supports by radius is mathematically equivalent to formlabs method:
 		//https://youtu.be/5VlprrdGYKM?t=22m33s
 		//Formlabs method is slower but can be adapted to nonlinear distributions
@@ -168,6 +180,43 @@ int main()
 	return 0;
 }
 
+void processIncrement()
+{
+	switch (processStep) {
+		case 0: updateNavMesh();
+		case 1: updateConnectionPoints();
+		case 2: updateSupportPaths();
+	}
+
+	processStep++;
+}
+
+void updateNavMesh()
+{
+	if (navMesh)
+		delete(navMesh);
+	navMesh = new NavigationMesh(*model, SupportOffset, SupportWidth);
+	navGraph = navMesh->getSimpleGraph(SupportOffset, SupportWidth);
+	navMesh->convertToMesh(navGraph, SupportOffset);
+}
+
+void updateConnectionPoints()
+{
+	if (connections)
+		delete(connections);
+	navMesh->graph->buildOctree();
+	connections = new ConnectionPoints(navMesh->graph);
+}
+
+void updateSupportPaths()
+{
+	if (paths)
+		delete(paths);
+	paths = new SupportPaths(navMesh->graph, navGraph, connections->points, 0.5, SupportOffset);
+	paths->FindPaths();
+	paths->Geometry(6, 0.0f);
+}
+
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
@@ -175,12 +224,8 @@ void processInput(GLFWwindow *window)
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-		if (navMesh)
-			delete(navMesh);
-		navMesh = new NavigationMesh();
-		navMesh->loadModel(*model, SupportOffset, SupportWidth);
-	}
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) 
+		processIncrement();
 
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);

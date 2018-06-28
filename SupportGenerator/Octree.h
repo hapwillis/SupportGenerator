@@ -58,7 +58,7 @@ struct FaceCell {
 	~FaceCell();
 
 	void add(Face *f, glm::vec3 center, float doubleSize);
-	int findQuadrant(glm::vec3 p);
+	int findOctant(glm::vec3 p);
 	FaceCell* populateChild(int i);
 	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize);
 };
@@ -76,7 +76,7 @@ struct Octant {
 
 	std::vector<int> getPoints(glm::vec3 point, float radius, float minD, std::vector<Vertex*> &vertices);
 	int findOctant(glm::vec3);
-	void add(glm::vec3 p, int index, std::vector<Vertex*> &vertices);
+	bool add(glm::vec3 p, int index, std::vector<Vertex*> &vertices);
 	void split(std::vector<Vertex*> &vertices);
 	bool pointsNotEqual(glm::vec3 p, glm::vec3 q);
 	void PopulateChildren(std::vector<Octant*> &children, glm::vec3 center, float r);
@@ -88,17 +88,22 @@ class Octree
 {
 public:
 	std::vector<Vertex*> vertices;
-	std::vector<unsigned int> *faces;
+	std::vector<Face*> *faces;
 	float Range;
 	Octant *root;
 	FaceCell *faceRoot;
+	std::vector<int> destroyList;
 
 	Octree(const std::vector<Node*> *nodes, std::vector<Face*> *aFaces, float range);
+	Octree();
 	~Octree();
 
+	void addPoint(glm::vec3 p);
 	void addVertex(int index);
-	void addFace(int index);
-	Node* getNearestPoint(glm::vec3 p);
+	void addFace(Face *face);
+	void enlargeFaceRoot();
+	glm::vec3 getNearestPoint(glm::vec3 p);
+	int getNearestNodeIndex(glm::vec3 p);
 	Face* getNearestFace(glm::vec3 p);
 	std::vector<int> findInRadius(glm::vec3 point, float radius, float minD);
 	// tests an octree of faces for intersection with a line segment

@@ -133,7 +133,7 @@ bool FaceCell::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSiz
 		glm::vec3 p2 = glm::greaterThanEqual(rayEnd, center);
 
 		if (glm::all(glm::equal(p1, p2))) {
-			FaceCell *c = children[findQuadrant(rayOrigin)];
+			FaceCell *c = children[findOctant(rayOrigin)];
 			if (c) {
 				return c->intersects(rayOrigin, rayEnd, doubleSize);
 			} else {
@@ -146,9 +146,11 @@ bool FaceCell::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSiz
 				return true;
 		}
 	}
+
+	return false;
 }
 
-int FaceCell::findQuadrant(glm::vec3 p)
+int FaceCell::findOctant(glm::vec3 p)
 {
 	int i = 0;
 	if (p.x >= center.x) { i = i + 1; }
@@ -163,8 +165,7 @@ void FaceCell::add(Face *f, glm::vec3 faceCenter, float doubleSize)
 		faces.push_back(f);
 		return;
 	}
-	int child = findQuadrant(faceCenter);
-	// TODO: Fix this
+	int child = findOctant(faceCenter);
 	if (!children[child])
 		children[child] = populateChild(child);
 	children[child]->add(f, faceCenter, doubleSize);
@@ -177,13 +178,20 @@ FaceCell* FaceCell::populateChild(int i)
 
 	switch (i) {
 		case 0: c += glm::vec3(-o, -o, -o);
+			break;
 		case 1: c += glm::vec3(o, -o, -o);
+			break;
 		case 2: c += glm::vec3(-o, o, -o);
+			break;
 		case 3: c += glm::vec3(o, o, -o);
+			break;
 
 		case 4: c += glm::vec3(-o, -o, o);
+			break;
 		case 5: c += glm::vec3(o, -o, o);
+			break;
 		case 6: c += glm::vec3(-o, o, o);
+			break;
 		case 7: c += glm::vec3(o, o, o);
 
 	}
@@ -227,11 +235,14 @@ int Octant::findOctant(glm::vec3 p)
 	return i;
 }
 
-void Octant::add(glm::vec3 p, int pointIndex, std::vector<Vertex*> &vertices)
+bool Octant::add(glm::vec3 p, int pointIndex, std::vector<Vertex*> &vertices)
 {
-	// TODO: return early for identical verts
-	// build on top of root if position > range
 	if (!filled) {
+		for (int i : points) {
+			if (i == pointIndex || pointsNotEqual(vertices[i]->Position, p))
+				return false;
+		}
+
 		if (points.size() < maxChildren) {
 			points.push_back(pointIndex);
 		} else {
@@ -245,8 +256,10 @@ void Octant::add(glm::vec3 p, int pointIndex, std::vector<Vertex*> &vertices)
 			cell = cell->children[cell->findOctant(p)];
 		}
 		
-		cell->add(p, pointIndex, vertices);
+		return cell->add(p, pointIndex, vertices);
 	}
+
+	return true;
 }
 
 void Octant::split(std::vector<Vertex*> &vertices)
@@ -278,12 +291,12 @@ bool Octant::pointsNotEqual(glm::vec3 p, glm::vec3 q)
 		c = true;
 	}
 	
-	return !(a && b && c);
+	return !((a && b) && c);
 }
 
 void Octant::PopulateChildren(std::vector<Octant*> &children, glm::vec3 center, float r)
 {
-	// TODO: lazy initialization
+	// can save time and space by converting this to lazy initialization (like FaceCell)
 	float offset = r / 2.0;
 	glm::vec3 c = center;
 	c -= glm::vec3(offset, offset, offset);
@@ -337,7 +350,7 @@ Octant::~Octant()
 }
 
 Octree::Octree(const std::vector<Node*> *nodes, std::vector<Face*> *aFaces, float range) :
-	Range(range)
+	faces(aFaces), Range(range)
 {
 	root = new Octant(glm::vec3(0.0, 0.0, 0.0), range);
 	faceRoot = new FaceCell(glm::vec3(0.0, 0.0, 0.0), range);
@@ -354,33 +367,73 @@ Octree::Octree(const std::vector<Node*> *nodes, std::vector<Face*> *aFaces, floa
 	std::cout << "Time to insert vertices: " << glfwGetTime() - time << std::endl;
 
 	time = glfwGetTime();
-	for (int i = 0; i < (*faces).size(); i += 3) {
-		//TODO: add faces
-		//addFace(i);
+	for (Face *face : *aFaces) {
+		addFace(face);
 	}
 	std::cout << "Time to insert faces: " << glfwGetTime() - time << std::endl;
+}
+
+Octree::Octree()
+{
+	Range = 20.0f;
+	root = new Octant(glm::vec3(0.0, 0.0, 0.0), Range);
+	faceRoot = new FaceCell(glm::vec3(0.0, 0.0, 0.0), Range);
+	vertices.reserve(100);
 }
 
 
 Octree::~Octree()
 {
+	for (int i : destroyList) {
+		delete vertices[i];
+	}
 	delete root;
 	delete faceRoot;
 }
 
-void Octree::addVertex(int index)
+void Octree::addPoint(glm::vec3 p)
 {
-	// TODO: return early for identical verts
-	// build on top of root if position > range
-	root->add(vertices[index]->Position, index, vertices);
+	int index = vertices.size();
+	vertices.emplace_back(p, glm::vec3(0.0, 0.0, 0.0), true);
+	addVertex(index);
+
+	//For now this is less complicated than worrying about smart pointers.
+	destroyList.push_back(index);
 }
 
-void Octree::addFace(int index) {
+void Octree::addVertex(int index)
+{
+	glm::vec3 pos = vertices[index]->Position;
+	float newRange = 2.0 * std::max({ pos.x, pos.y, pos.z });
+	while (root->range < newRange) {
+		glm::vec3 center = root->center;
+		float oldRange = root->range;
+		Octant *child = root;
+		root = new Octant(center, oldRange * 2.0);
+		root->PopulateChildren(root->children, center, oldRange);
+
+		for (Octant *o : root->children) {
+			o->PopulateChildren(o->children, center, oldRange / 2);
+		}
+
+		for (Octant *o : child->children) {
+			Octant *toFill = root->children[root->findOctant(o->center)];
+			Octant *toReplace = toFill->children[toFill->findOctant(o->center)];
+
+			delete toReplace;
+			toReplace = o;
+		}
+	}
+
+	root->add(pos, index, vertices);
+}
+
+void Octree::addFace(Face *face) {
 	glm::vec3 vertex0, vertex1, vertex2, edge1, edge2, center;
 
-	vertex0 = vertices[(*faces)[index]]->Position;
-	vertex1 = vertices[(*faces)[index + 1]]->Position;
-	vertex2 = vertices[(*faces)[index + 2]]->Position;
+	vertex0 = vertices[face->v1]->Position;
+	vertex1 = vertices[face->v1]->Position;
+	vertex2 = vertices[face->v1]->Position;
 
 	edge1 = vertex1 - vertex0;
 	edge2 = vertex2 - vertex0;
@@ -394,20 +447,51 @@ void Octree::addFace(int index) {
 	minZ = std::min({ vertex0.z, vertex1.z, vertex2.z });
 	maxZ = std::max({ vertex0.z, vertex1.z, vertex2.z });
 	doubleSize = 2.0 * std::max({ maxX - minX, maxY - minY, maxZ - minZ, });
-	center.x = (maxX - minX) / 2.0;
-	center.y = (maxY - minY) / 2.0;
-	center.z = (maxZ - minZ) / 2.0;
+	center.x = (maxX - minX) / 2.0f;
+	center.y = (maxY - minY) / 2.0f;
+	center.z = (maxZ - minZ) / 2.0f;
 
-	faceRoot->add(new Face(edge1, edge2, vertex0), center, doubleSize);
+	while (doubleSize > faceRoot->range) {
+		enlargeFaceRoot();
+	}
+
+	faceRoot->add(face, center, doubleSize);
+}
+
+void Octree::enlargeFaceRoot()
+{
+	glm::vec3 center = faceRoot->center;
+	float oldRange = faceRoot->range;
+	FaceCell *child = faceRoot;
+	faceRoot = new FaceCell(center, oldRange * 2.0);
+
+	for (int i = 0; i < 8; i++) {
+		faceRoot->populateChild(i);
+	}
+
+	for (FaceCell *o : child->children) {
+		FaceCell *toFill = faceRoot->children[faceRoot->findOctant(o->center)];
+		toFill->children[toFill->findOctant(o->center)] = o;
+	}
+
+	for (Face *face : child->faces) {
+		addFace(face);
+	}
 }
 
 glm::vec3 Octree::getNearestPoint(glm::vec3 p)
 {
+	return vertices[getNearestNodeIndex(p)]->Position;
+}
+
+int Octree::getNearestNodeIndex(glm::vec3 p)
+{
 	Octant leaf = root->find(p);
-	float r = leaf.range; 
+	float r = leaf.range;
 	glm::vec3 *p1 = NULL;
 	glm::vec3 *p2 = NULL;
 	float d1 = -1;
+	int nearestIndex;
 
 	if (leaf.points.size() > 0 && leaf.children.size() < 1) {
 		for (int index : leaf.points) {
@@ -415,6 +499,7 @@ glm::vec3 Octree::getNearestPoint(glm::vec3 p)
 			if (glm::all(glm::equal(t, p))) {
 				p1 = &t;
 				d1 = glm::distance(t, p);
+				nearestIndex = index;
 			}
 		}
 	}
@@ -422,17 +507,24 @@ glm::vec3 Octree::getNearestPoint(glm::vec3 p)
 	while (!p2) {
 		r *= 2.0;
 		std::vector<int> nearby = root->getPoints(p, r, 0.0, vertices);
-		for (int i : nearby) {
-			p2 = &vertices[i]->Position;
+		for (int index : nearby) {
+			p2 = &vertices[index]->Position;
 			float d2 = glm::distance(*p2, p);
 			if (!p1 || d2 < d1) {
 				p1 = p2;
 				d1 = d2;
+				nearestIndex = index;
 			}
 		}
 	}
 
-	return *p1;
+	return nearestIndex;
+}
+
+Face * Octree::getNearestFace(glm::vec3 p)
+{
+	// TODO: getNearestFace()
+	return nullptr;
 }
 
 std::vector<int> Octree::findInRadius(glm::vec3 point, float radius, float minD)
@@ -444,5 +536,11 @@ bool Octree::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 {
 	float doubleSize = (2.0 * glm::distance(rayOrigin, rayEnd));
 	return faceRoot->intersects(rayOrigin, rayEnd, doubleSize);
+}
+
+glm::vec3 Octree::rayCast(glm::vec3 rayOrigin, glm::vec3 direction)
+{
+	// TODO: rayCast()
+	return glm::vec3();
 }
 

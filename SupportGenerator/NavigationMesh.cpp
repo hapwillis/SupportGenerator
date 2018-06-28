@@ -104,45 +104,30 @@ bool operator<(const Edge& a, const Edge& b)
 	return a.length > b.length;
 }
 
-NavigationMesh::NavigationMesh()
+NavigationMesh::NavigationMesh(Model &newModel, float offset, float width)
 {
-
+	model = &newModel;
+	displacement = offset + (width * 0.5f);
+	supportWidth = width;
+	double time = glfwGetTime();
+	// 27.6864 seconds to build graph
+	graph = new Graph(*model);
+	std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 }
 
 NavigationMesh::~NavigationMesh()
 {
-
+	
 }
 
-bool NavigationMesh::loadModel(Model &newModel, float offset, float width) 
+Graph * NavigationMesh::getSimpleGraph(float offset, float width)
 {
-	// Move to constructor
-	if (model != &newModel || displacement != offset + (width / 2.0f) || supportWidth  != width) {
-		model = &newModel;
-		displacement = offset + (width * 0.5f);
-		supportWidth = width;
-		double time = glfwGetTime();
-		// 27.6864 seconds to build graph
-		graph = new Graph(*model);
-		std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
-		
+	float time = glfwGetTime();
+	// 57.52 seconds to run decimateMesh
+	navGraph = decimateMesh();
+	std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
-		// TODO: Get via getSimpleGraph(), only call from outside
-		time = glfwGetTime();
-		// 57.52 seconds to run decimateMesh
-		navGraph = decimateMesh();
-		std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
-
-
-		//TODO: put scale into convertToMesh(), only call from outside
-		navGraph->scale(offset); 
-		time = glfwGetTime();
-
-		mesh = convertToMesh(navGraph);
-		std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
-	}
-
-	return true;
+	return navGraph;
 }
 
 void NavigationMesh::initializeHeap(std::priority_queue<Edge> &edgeHeap) //Appears to not be handling edges properly
@@ -171,7 +156,9 @@ void NavigationMesh::initializeHeap(std::priority_queue<Edge> &edgeHeap) //Appea
 
 Graph* NavigationMesh::decimateMesh()
 {
+	// TODO: rewrite this so it doesn't corrupt the graph nodes.
 	std::priority_queue<Edge> edgeHeap;
+	// TODO: heap appears to be broken
 	initializeHeap(edgeHeap); // TODO: write custom heap that uses pointers
 
 	float minLength = supportWidth * 0.25f;
@@ -204,8 +191,10 @@ Graph* NavigationMesh::decimateMesh()
 	return graph->ReduceFootprint();
 }
 
-Mesh* NavigationMesh::convertToMesh(Graph *graph)
+Mesh* NavigationMesh::convertToMesh(Graph *graph, float offset)
 {
+	float time = glfwGetTime();
+	graph->scale(offset);
 	graph->recalculateNormalsFromFaces();
 	std::vector<Vertex> vertices;
 	vertices.reserve(graph->nodes.size());
@@ -217,7 +206,9 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph)
 	std::vector<unsigned int> indices;
 	facesToIndices(graph, indices);
 
-	return new Mesh(vertices, indices);
+	mesh = new Mesh(vertices, indices);
+	std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
+	return mesh;
 }
 
 void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)
