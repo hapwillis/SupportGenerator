@@ -19,6 +19,7 @@ struct ordered_set {
 class Node
 {
 public:
+	// TODO: update connections to be pointers instead of indices
 	int ID; //serial for each vertex added
 	Vertex vertex;
 	std::vector<int> connections;
@@ -32,6 +33,7 @@ public:
 };
 
 struct Face {
+	// TODO: update vertices to be pointers instead of indices
 	const float EPSILON = 0.0000001f;
 	glm::vec3 edgeOne;
 	glm::vec3 edgeTwo;

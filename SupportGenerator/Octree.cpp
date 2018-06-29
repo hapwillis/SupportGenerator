@@ -106,7 +106,8 @@ bool Face::MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 
 FaceCell::FaceCell(glm::vec3 c, float r) : center(c), range(r)
 {
-
+	FaceCell *nullpoint = { 0 };
+	children.assign(8, nullpoint);
 }
 
 FaceCell::~FaceCell() 
@@ -324,13 +325,15 @@ void Octant::PopulateChildren(std::vector<Octant*> &children, glm::vec3 center, 
 
 Octant Octant::find(glm::vec3 p)
 {
-	int child = findOctant(p);
-	if (children[child]) {
-		if (children[child]->filled) {
-			if (children[child]->children.size() < 1) {
-				return *children[child];
+	if (children.size() > 0) {
+		int child = findOctant(p);
+		if (children[child]) {
+			if (children[child]->filled) {
+				if (children[child]->children.size() < 1) {
+					return *children[child];
+				}
+				return children[child]->find(p);
 			}
-			return children[child]->find(p);
 		}
 	}
 
@@ -359,18 +362,18 @@ Octree::Octree(const std::vector<Node*> *nodes, std::vector<Face*> *aFaces, floa
 		vertices.push_back(&n->vertex);
 	}
 
-	float time = glfwGetTime();
+	//float time = glfwGetTime();
 	//0.0284 seconds to build vertex octree
 	for (int i = 0; i < vertices.size(); i++) {
 		addVertex(i);
 	}
-	std::cout << "Time to insert vertices: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to insert vertices: " << glfwGetTime() - time << std::endl;
 
-	time = glfwGetTime();
+	//time = glfwGetTime();
 	for (Face *face : *aFaces) {
 		addFace(face);
 	}
-	std::cout << "Time to insert faces: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to insert faces: " << glfwGetTime() - time << std::endl;
 }
 
 Octree::Octree()
@@ -394,7 +397,8 @@ Octree::~Octree()
 void Octree::addPoint(glm::vec3 p)
 {
 	int index = vertices.size();
-	vertices.emplace_back(p, glm::vec3(0.0, 0.0, 0.0), true);
+	//vertices.emplace_back(p, glm::vec3(0.0, 0.0, 0.0), true);
+	vertices.push_back(new Vertex(p, glm::vec3(0.0, 0.0, 0.0), true));
 	addVertex(index);
 
 	//For now this is less complicated than worrying about smart pointers.
@@ -432,8 +436,8 @@ void Octree::addFace(Face *face) {
 	glm::vec3 vertex0, vertex1, vertex2, edge1, edge2, center;
 
 	vertex0 = vertices[face->v1]->Position;
-	vertex1 = vertices[face->v1]->Position;
-	vertex2 = vertices[face->v1]->Position;
+	vertex1 = vertices[face->v2]->Position;
+	vertex2 = vertices[face->v3]->Position;
 
 	edge1 = vertex1 - vertex0;
 	edge2 = vertex2 - vertex0;
@@ -455,7 +459,11 @@ void Octree::addFace(Face *face) {
 		enlargeFaceRoot();
 	}
 
-	faceRoot->add(face, center, doubleSize);
+	if (doubleSize > face->EPSILON) {
+		faceRoot->add(face, center, doubleSize);
+	} else {
+		//std::cout << "Invalid faces detected!" << std::endl;
+	}
 }
 
 void Octree::enlargeFaceRoot()
@@ -466,12 +474,15 @@ void Octree::enlargeFaceRoot()
 	faceRoot = new FaceCell(center, oldRange * 2.0);
 
 	for (int i = 0; i < 8; i++) {
-		faceRoot->populateChild(i);
+		faceRoot->children[i] = faceRoot->populateChild(i);
 	}
 
-	for (FaceCell *o : child->children) {
-		FaceCell *toFill = faceRoot->children[faceRoot->findOctant(o->center)];
-		toFill->children[toFill->findOctant(o->center)] = o;
+	for (int i = 0; i < 8; i++) {
+		FaceCell *o = child->children[i];
+		if (o) {
+			FaceCell *toFill = faceRoot->children[faceRoot->findOctant(o->center)];
+			toFill->children[toFill->findOctant(o->center)] = o;
+		}
 	}
 
 	for (Face *face : child->faces) {

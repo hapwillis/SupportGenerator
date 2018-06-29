@@ -66,6 +66,7 @@ Path::Path(std::vector<PFNode> *nodes, float overhang, glm::mat4 model)
 
 Path::~Path()
 {
+	delete pathGeometry;
 	delete(path[0]);
 	delete(path[1]);
 }
@@ -132,7 +133,7 @@ void Path::aStar(bool pathFound)
 void Path::Geometry()
 {
 	std::vector<Vertex> vertices;
-	std::vector<int> indices;
+	std::vector<unsigned int> indices;
 	int vOffset = 0;
 	int iOffset = 0;
 	vertices.reserve(faces * path.size() * 2);
@@ -145,6 +146,7 @@ void Path::Geometry()
 		
 		for (glm::vec3 pos : c.vertices) {
 			vertices.emplace_back(pos, norm, true);
+			//vertices.push_back(Vertex(pos, norm, true));
 		}
 		vOffset = vertices.size();
 
@@ -153,12 +155,16 @@ void Path::Geometry()
 		}
 		iOffset = indices.size();
 	}
+
+	pathGeometry = new Mesh(vertices, indices);
 }
 
 void Path::Draw(DefaultShader shader)
 {
 	if (pathGeometry) {
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		pathGeometry->Draw(shader);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	} else {
 		Geometry();
 	}

@@ -2,17 +2,17 @@
 
 Graph::Graph(const Model &model)
 {
-	float time = glfwGetTime();
+	//float time = glfwGetTime();
 	//0.131 seconds to remove vertices
 	ConcatenateModelMeshes(model);
-	std::cout << "Time to simplify Mesh: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to simplify Mesh: " << glfwGetTime() - time << std::endl;
 
 	// Populate every node with its faces and connections:
 	populateConnections();
 
 	//float time = glfwGetTime();
 	//WARNING: recalculating normals breaks manifold.
-	recalculateNormalsFromFaces();
+	//recalculateNormalsFromFaces();
 	//std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
 }
 
@@ -156,17 +156,19 @@ float Graph::getRange()
 	if (Range <= 0.0) {
 		float deltaX = 0.0, deltaY = 0.0, deltaZ = 0.0;
 		for (Node *n : nodes) {
-			glm::vec3 *vert = &(n->vertex.Position);
+			if (n) {
+				glm::vec3 vert = n->vertex.Position;
 
-			int t = std::abs(vert->x);
-			if (t > deltaX)
-				deltaX = t;
-			t = std::abs(vert->y);
-			if (t > deltaY)
-				deltaY = t;
-			t = std::abs(vert->z);
-			if (t > deltaZ)
-				deltaZ = t;
+				int t = std::abs(vert.x);
+				if (t > deltaX)
+					deltaX = t;
+				t = std::abs(vert.y);
+				if (t > deltaY)
+					deltaY = t;
+				t = std::abs(vert.z);
+				if (t > deltaZ)
+					deltaZ = t;
+			}
 		}
 
 		Range = 2.0 * std::max({ deltaX, deltaY, deltaZ });
@@ -409,6 +411,8 @@ std::vector<Face*> Graph::cleanFaces(std::vector<Node*> &nodeList, std::vector<i
 	std::vector<Face*> faceList;
 	std::vector<int> faceTran;
 	faceTran.reserve(faceList.size());
+
+	// TODO: delete faces that have degenerated into lines or points (all verts the same)
 
 	int index = 0;
 	for (Face *f : faceVector) {

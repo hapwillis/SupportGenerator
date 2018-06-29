@@ -115,7 +115,7 @@ float Model::BoundingSphere()
 void Model::loadModel(std::string &path)
 {
 	// Loading time for AssImp: .067 seconds
-	float time = glfwGetTime();
+	//float time = glfwGetTime();
 	Assimp::Importer import;
 	import.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, 
 		//aiComponent_NORMALS					|
@@ -143,11 +143,11 @@ void Model::loadModel(std::string &path)
 	}
 	directory = path.substr(0, path.find_last_of('/'));
 
-	std::cout << "Time to load: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to load: " << glfwGetTime() - time << std::endl;
 	// Time for processNode: 0.058 seconds
-	time = glfwGetTime();
+	//time = glfwGetTime();
 	processNode(scene->mRootNode, scene);
-	std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
 }
 
 void Model::processNode(aiNode *node, const aiScene *scene)

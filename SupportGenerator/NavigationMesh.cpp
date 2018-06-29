@@ -109,10 +109,10 @@ NavigationMesh::NavigationMesh(Model &newModel, float offset, float width)
 	model = &newModel;
 	displacement = offset + (width * 0.5f);
 	supportWidth = width;
-	double time = glfwGetTime();
+	//double time = glfwGetTime();
 	// 27.6864 seconds to build graph
 	graph = new Graph(*model);
-	std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 }
 
 NavigationMesh::~NavigationMesh()
@@ -122,10 +122,10 @@ NavigationMesh::~NavigationMesh()
 
 Graph * NavigationMesh::getSimpleGraph(float offset, float width)
 {
-	float time = glfwGetTime();
+	//float time = glfwGetTime();
 	// 57.52 seconds to run decimateMesh
 	navGraph = decimateMesh();
-	std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
 	return navGraph;
 }
@@ -193,7 +193,7 @@ Graph* NavigationMesh::decimateMesh()
 
 Mesh* NavigationMesh::convertToMesh(Graph *graph, float offset)
 {
-	float time = glfwGetTime();
+	//float time = glfwGetTime();
 	graph->scale(offset);
 	graph->recalculateNormalsFromFaces();
 	std::vector<Vertex> vertices;
@@ -207,14 +207,14 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph, float offset)
 	facesToIndices(graph, indices);
 
 	mesh = new Mesh(vertices, indices);
-	std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
+	//std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
 	return mesh;
 }
 
 void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)
 {
-	std::cout << "number of faces: " << graph->faceVector.size() << std::endl;
-	std::cout << "number of vertices: " << graph->nodes.size() << std::endl;
+	//std::cout << "number of faces: " << graph->faceVector.size() << std::endl;
+	//std::cout << "number of vertices: " << graph->nodes.size() << std::endl;
 
 	//It's gotta be this, right?  This isn't creating all the faces?
 	int invalid = 0;
@@ -233,7 +233,7 @@ void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &ind
 		}
 	}
 
-	std::cout << "Corrupted face indices: " << invalid << std::endl;
+	//std::cout << "Corrupted face indices: " << invalid << std::endl;
 }
 
 bool NavigationMesh::edgeValid(Edge edge, Graph *graph)

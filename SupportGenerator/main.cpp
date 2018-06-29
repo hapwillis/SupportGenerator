@@ -34,7 +34,7 @@ Camera camera(FOV, scrWidth, scrHeight, glm::vec3(0.0f, 0.0f, 3.0f));
 
 // context:
 int processStep = 0;
-Model* model = {0};
+Model *model = {0};
 NavigationMesh *navMesh = { 0 };
 Graph *navGraph = { 0 };
 ConnectionPoints *connections = { 0 };
@@ -180,41 +180,52 @@ int main()
 	return 0;
 }
 
-void processIncrement()
+void updateConnectionPoints()
 {
-	switch (processStep) {
-		case 0: updateNavMesh();
-		case 1: updateConnectionPoints();
-		case 2: updateSupportPaths();
-	}
+	double time = glfwGetTime();
 
-	processStep++;
+	if (navMesh)
+		delete(navMesh);
+	navMesh = new NavigationMesh(*model, SupportOffset, SupportWidth);
+
+	if (connections)
+		delete(connections);
+	connections = new ConnectionPoints(navMesh->graph, 0.785398f);
+	std::cout << "Time to create connections: " << glfwGetTime() - time << std::endl;
 }
 
 void updateNavMesh()
 {
-	if (navMesh)
-		delete(navMesh);
-	navMesh = new NavigationMesh(*model, SupportOffset, SupportWidth);
+	double time = glfwGetTime();
 	navGraph = navMesh->getSimpleGraph(SupportOffset, SupportWidth);
 	navMesh->convertToMesh(navGraph, SupportOffset);
-}
-
-void updateConnectionPoints()
-{
-	if (connections)
-		delete(connections);
-	navMesh->graph->buildOctree();
-	connections = new ConnectionPoints(navMesh->graph);
+	std::cout << "Time to create navigation mesh: " << glfwGetTime() - time << std::endl;
 }
 
 void updateSupportPaths()
 {
+	double time = glfwGetTime();
 	if (paths)
 		delete(paths);
+	// TODO: this won't be needed if decimateMesh is non-mutating.
+	navMesh = new NavigationMesh(*model, SupportOffset, SupportWidth);
 	paths = new SupportPaths(navMesh->graph, navGraph, connections->points, 0.5, SupportOffset);
 	paths->FindPaths();
 	paths->Geometry(6, 0.0f);
+	std::cout << "Time to pathfind supports: " << glfwGetTime() - time << std::endl;
+}
+
+void processIncrement()
+{
+	switch (processStep) {
+	case 0: updateConnectionPoints();
+		break;
+	case 1: updateNavMesh();
+		break;
+	case 2: updateSupportPaths();
+	}
+
+	processStep++;
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -281,7 +292,8 @@ void drop_callback(GLFWwindow* window, int count, const char** paths)
 			navMesh = NULL;
 		}
 	}
-
+	float time = glfwGetTime();
 	model = new Model(p);
+	std::cout << "Time to load model: " << glfwGetTime() - time << std::endl;
 	camera.TargetModel(model);
 }

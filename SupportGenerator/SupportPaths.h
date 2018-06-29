@@ -1,7 +1,7 @@
 #pragma once
 
-#define _USE_MATH_DEFINES  
-#include <cmath> 
+#define _USE_MATH_DEFINES
+#include <math.h> 
 #include "Graph.h"
 
 class Cylinder
