@@ -41,7 +41,7 @@ void ConnectionPoints::populateOctree()
 	}
 
 	for (Face *f : model->faceVector) {
-		// this appears to be wildly broken, as points are being added that are nowhere near
+		// TODO: this appears to be wildly broken, as points are being added that are nowhere near
 		// it may be because the face normals are flipped?
 		if (glm::acos(glm::dot(f->normal, down)) < overhang)
 			octree.addFace(f);
@@ -122,11 +122,12 @@ glm::vec3 ConnectionPoints::randomPoint()
 	float r1 = contDistribution(generator);
 	float r2 = contDistribution(generator);
 
-	v1 = model->nodes[face->v1]->vertex.Position;
-	e1 = model->nodes[face->v2]->vertex.Position - v1;
+	// TODO: remove this nested dereferencing
+	v1 = model->nodes[face->index1]->vertex.Position;
+	e1 = model->nodes[face->index2]->vertex.Position - v1;
 	tVert = r1 * e1 + v1;
 
-	e2 = model->nodes[face->v3]->vertex.Position - tVert;
+	e2 = model->nodes[face->index3]->vertex.Position - tVert;
 	randPoint = r2 * e2 + tVert;
 
 	return randPoint;
@@ -139,9 +140,10 @@ float ConnectionPoints::prominence(glm::vec3 point)
 
 glm::vec3 ConnectionPoints::lowestVertex(Face * face)
 {
-	glm::vec3 v1 = model->nodes[face->v1]->vertex.Position;
-	glm::vec3 v2 = model->nodes[face->v2]->vertex.Position;
-	glm::vec3 v3 = model->nodes[face->v3]->vertex.Position;
+	// TODO: remove this nested dereferencing
+	glm::vec3 v1 = model->nodes[face->index1]->vertex.Position;
+	glm::vec3 v2 = model->nodes[face->index2]->vertex.Position;
+	glm::vec3 v3 = model->nodes[face->index3]->vertex.Position;
 	float lowest = std::min(v1.x, v2.x);
 
 	if (v3.x < lowest)

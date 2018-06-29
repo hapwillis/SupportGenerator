@@ -74,9 +74,10 @@ public:
 	Graph *navGraph;
 	std::vector<PFNode> nodes;
 	std::vector<glm::vec3> points;
-	glm::mat4 transform;
+	glm::mat4 transform; // TODO: implement transformation
 	float maxOverhang;
 	std::vector<Path*> paths;
+	// TODO: add mesh for concatenated paths
 
 	std::vector<Mesh*> supportGeometry;
 
@@ -94,5 +95,8 @@ private:
 	Path* findStartNode(glm::vec3 point);
 	void regroupPaths(); //convert overlapping paths into multiple distinct paths
 	void intersectionGeometry();
+	void tip();
+	void base();
+	void cylinderSegment();
 };
 

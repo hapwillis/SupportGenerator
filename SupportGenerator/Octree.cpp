@@ -52,56 +52,92 @@ void Node::addFace(int face)
 	faces.insert(face);
 }
 
-Face::Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v) : edgeOne(e1), edgeTwo(e2), vertex(v)
+Face::Face(int v1, int v2, int v3, const std::vector<Node*> &nodes) : index1(v1), index2(v2), index3(v3)
 {
-	normal = glm::cross(glm::normalize(e1), glm::normalize(e2));
-}
+	edge21 = nodes[index2]->vertex.Position - nodes[index1]->vertex.Position;
+	edge31 = nodes[index3]->vertex.Position - nodes[index1]->vertex.Position;
+	edge32 = nodes[index3]->vertex.Position - nodes[index2]->vertex.Position;
+	vertex1 = nodes[index1]->vertex.Position;
+	vertex2 = nodes[index2]->vertex.Position;
+	vertex3 = nodes[index3]->vertex.Position;
 
-Face::Face(int v1, int v2, int v3, const std::vector<Node*> &nodes) : v1(v1), v2(v2), v3(v3)
-{
-	edgeOne = nodes[v2]->vertex.Position - nodes[v1]->vertex.Position;
-	edgeTwo = nodes[v3]->vertex.Position - nodes[v1]->vertex.Position;
-	vertex = nodes[v1]->vertex.Position;
-
-	normal = glm::cross(glm::normalize(edgeOne), glm::normalize(edgeTwo));
+	normal = glm::normalize(glm::cross(edge21, edge31));
+	edge21Normal = glm::normalize(glm::cross(edge21, normal));
+	edge32Normal = glm::normalize(glm::cross(edge32, normal));
+	edge13Normal = glm::normalize(glm::cross(-edge31, normal));
 }
 
 void Face::update(const std::vector<Node*> &nodes)
 {
-	edgeOne = nodes[v2]->vertex.Position - nodes[v1]->vertex.Position;
-	edgeTwo = nodes[v3]->vertex.Position - nodes[v1]->vertex.Position;
-	vertex = nodes[v1]->vertex.Position;
+	edge21 = nodes[index2]->vertex.Position - nodes[index1]->vertex.Position;
+	edge31 = nodes[index3]->vertex.Position - nodes[index1]->vertex.Position;
+	edge32 = nodes[index3]->vertex.Position - nodes[index2]->vertex.Position;
+	vertex1 = nodes[index1]->vertex.Position;
+	vertex2 = nodes[index2]->vertex.Position;
+	vertex3 = nodes[index3]->vertex.Position;
 
-	normal = glm::cross(glm::normalize(edgeOne), glm::normalize(edgeTwo));
+	normal = glm::normalize(glm::cross(edge21, edge31));
+	edge21Normal = glm::normalize(glm::cross(edge21, normal));
+	edge32Normal = glm::normalize(glm::cross(edge32, normal));
+	edge13Normal = glm::normalize(glm::cross(-edge31, normal));
 }
 
-bool Face::MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd)
+bool Face::MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd, glm::vec3 **intersectionPtr)
 {
 	glm::vec3 h, s, q;
 	float a, f, u, v;
+	// optimization potential: provide direction as an arg instead of implicitly
 	glm::vec3 rayVector = glm::normalize(rayEnd - rayOrigin);
-	h = glm::cross(rayVector, edgeTwo);
-	a = glm::dot(edgeOne, h);
+	h = glm::cross(rayVector, edge31);
+	a = glm::dot(edge21, h);
 	if (a > -EPSILON && a < EPSILON)
 		return false;
 	f = 1 / a;
-	s = rayOrigin - vertex;
+	s = rayOrigin - vertex1;
 	u = f * (glm::dot(s, h));
 	if (u < 0.0 || u > 1.0)
 		return false;
-	q = glm::cross(s, edgeOne);
+	q = glm::cross(s, edge21);
 	v = f * glm::dot(rayVector, q);
 	if (v < 0.0 || u + v > 1.0)
 		return false;
 	// At this stage we can compute t to find out where the intersection point is on the line.
-	float t = f * glm::dot(edgeTwo, q);
+	float t = f * glm::dot(edge31, q);
 	if (t > EPSILON) // ray intersection
 	{
-		//glm::vec3 ourIntersectionPoint = rayOrigin + rayVector * t;
+		glm::vec3 inter = rayOrigin + rayVector * t;
+		*intersectionPtr = new glm::vec3(inter);
 		return true;
 	}
 	else // This means that there is a line intersection but not a ray intersection.
 		return false;
+}
+
+float Face::faceDistanceSquared(glm::vec3 point)
+{
+	glm::vec3 vecP1 = point - vertex1;
+	glm::vec3 vecP2 = point - vertex2;
+	glm::vec3 vecP3 = point - vertex3;
+
+	//first test if point is inside the prism of the normal-projected face
+	bool insidePrism =	(glm::dot(edge21Normal, vecP1) > 0.0f) &&
+						(glm::dot(edge32Normal, vecP2) > 0.0f) &&
+						(glm::dot(edge13Normal, vecP3) > 0.0f);
+	if (insidePrism) {
+		// if yes, return distance to face normal
+		float d = glm::dot(normal, vecP1);
+		return d * d;
+	} 
+
+	// if no, return min (distance from edge)
+	glm::vec3 proj21 =	edge21 * std::clamp(glm::dot(edge21, vecP1) /
+						glm::dot(edge21, edge21), 0.0f, 1.0f) - vecP1;
+	glm::vec3 proj32 =	edge32 * std::clamp(glm::dot(edge32, vecP2) /
+						glm::dot(edge32, edge32), 0.0f, 1.0f) - vecP2;
+	glm::vec3 proj13 =	-edge31 * std::clamp(glm::dot(-edge31, vecP3) /
+						glm::dot(edge31, edge31), 0.0f, 1.0f) - vecP3;
+
+	return std::min({ glm::dot(proj21, proj21),  glm::dot(proj32, proj32),  glm::dot (proj13, proj13)});
 }
 
 FaceCell::FaceCell(glm::vec3 c, float r) : center(c), range(r)
@@ -120,11 +156,11 @@ FaceCell::~FaceCell()
 	}
 }
 
-bool FaceCell::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize)
+bool FaceCell::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize, glm::vec3 **intersectionPtr)
 {
 	// First, test all faces in this FaceCell
 	for (Face *f : faces) {
-		if (f->MollerTrumbore(rayOrigin, rayEnd))
+		if (f && f->MollerTrumbore(rayOrigin, rayEnd, intersectionPtr))
 			return true;
 	}
 
@@ -136,19 +172,56 @@ bool FaceCell::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSiz
 		if (glm::all(glm::equal(p1, p2))) {
 			FaceCell *c = children[findOctant(rayOrigin)];
 			if (c) {
-				return c->intersects(rayOrigin, rayEnd, doubleSize);
+				return c->intersects(rayOrigin, rayEnd, doubleSize, intersectionPtr);
 			} else {
 				return false;
 			}
 		}
 	} else { //just test all faces in the region
 		for (FaceCell *c : children) {
-			if (c->intersects(rayOrigin, rayEnd, doubleSize))
+			if (c && c->intersects(rayOrigin, rayEnd, doubleSize, intersectionPtr))
 				return true;
 		}
 	}
 
 	return false;
+}
+
+float FaceCell::closestFace(glm::vec3 point, Face** resultSquared)
+{
+	Face *best = NULL;
+	float bestDist = -1.0f;
+
+
+	FaceCell *bestChild = children[findOctant(point)];
+	if (bestChild)
+		bestDist = bestChild->closestFace(point, &best);
+
+	for (Face *face : faces) {
+		float dist = face->faceDistanceSquared(point);
+		if (bestDist < 0.0f || (dist < bestDist && dist > 0.0f)) {
+			bestDist = dist;
+			best = face;
+		}
+	}
+
+	// search other octants
+	if (bestDist < 0.0f) {
+		for (FaceCell *octant : children) {
+			if (octant && octant != bestChild) {
+				Face *face = NULL;
+				float dist = octant->closestFace(point, &face);
+
+				if (bestDist < 0.0f || (dist < bestDist && dist > 0.0f)) {
+					bestDist = dist;
+					best = face;
+				}
+			}
+		}
+	}
+
+	*resultSquared = best;
+	return bestDist;
 }
 
 int FaceCell::findOctant(glm::vec3 p)
@@ -384,7 +457,6 @@ Octree::Octree()
 	vertices.reserve(100);
 }
 
-
 Octree::~Octree()
 {
 	for (int i : destroyList) {
@@ -407,6 +479,7 @@ void Octree::addPoint(glm::vec3 p)
 
 void Octree::addVertex(int index)
 {
+	// TODO: block from adding nodes without connections, pass nodes/vertices instead of indices
 	glm::vec3 pos = vertices[index]->Position;
 	float newRange = 2.0 * std::max({ pos.x, pos.y, pos.z });
 	while (root->range < newRange) {
@@ -427,20 +500,19 @@ void Octree::addVertex(int index)
 			delete toReplace;
 			toReplace = o;
 		}
+
+		Range *= 2.0;
 	}
 
 	root->add(pos, index, vertices);
 }
 
 void Octree::addFace(Face *face) {
-	glm::vec3 vertex0, vertex1, vertex2, edge1, edge2, center;
+	glm::vec3 vertex0, vertex1, vertex2, center;
 
-	vertex0 = vertices[face->v1]->Position;
-	vertex1 = vertices[face->v2]->Position;
-	vertex2 = vertices[face->v3]->Position;
-
-	edge1 = vertex1 - vertex0;
-	edge2 = vertex2 - vertex0;
+	vertex0 = face->vertex1; 
+	vertex1 = face->vertex2;
+	vertex2 = face->vertex3;
 
 	// make AABB
 	float doubleSize, minX, maxX, minY, maxY, minZ, maxZ;
@@ -451,9 +523,9 @@ void Octree::addFace(Face *face) {
 	minZ = std::min({ vertex0.z, vertex1.z, vertex2.z });
 	maxZ = std::max({ vertex0.z, vertex1.z, vertex2.z });
 	doubleSize = 2.0 * std::max({ maxX - minX, maxY - minY, maxZ - minZ, });
-	center.x = (maxX - minX) / 2.0f;
-	center.y = (maxY - minY) / 2.0f;
-	center.z = (maxZ - minZ) / 2.0f;
+	center.x = (maxX + minX) / 2.0f;
+	center.y = (maxY + minY) / 2.0f;
+	center.z = (maxZ + minZ) / 2.0f;
 
 	while (doubleSize > faceRoot->range) {
 		enlargeFaceRoot();
@@ -480,7 +552,7 @@ void Octree::enlargeFaceRoot()
 	for (int i = 0; i < 8; i++) {
 		FaceCell *o = child->children[i];
 		if (o) {
-			FaceCell *toFill = faceRoot->children[faceRoot->findOctant(o->center)];
+			FaceCell *toFill = faceRoot->children[i];
 			toFill->children[toFill->findOctant(o->center)] = o;
 		}
 	}
@@ -534,8 +606,14 @@ int Octree::getNearestNodeIndex(glm::vec3 p)
 
 Face * Octree::getNearestFace(glm::vec3 p)
 {
-	// TODO: getNearestFace()
-	return nullptr;
+	Face *result = NULL;
+	float distanceSquared = faceRoot->closestFace(p, &result);
+
+	// Not required, but provides a check on faceCell being changed:
+	if (distanceSquared < 0.0f) 
+		return NULL;
+
+	return result;
 }
 
 std::vector<int> Octree::findInRadius(glm::vec3 point, float radius, float minD)
@@ -545,13 +623,19 @@ std::vector<int> Octree::findInRadius(glm::vec3 point, float radius, float minD)
 
 bool Octree::intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd)
 {
+	glm::vec3 *n = NULL;
 	float doubleSize = (2.0 * glm::distance(rayOrigin, rayEnd));
-	return faceRoot->intersects(rayOrigin, rayEnd, doubleSize);
+	return faceRoot->intersects(rayOrigin, rayEnd, doubleSize, &n);
 }
 
 glm::vec3 Octree::rayCast(glm::vec3 rayOrigin, glm::vec3 direction)
 {
-	// TODO: rayCast()
-	return glm::vec3();
+	glm::vec3 rayEnd = (faceRoot->range * 2.0f) * direction + rayOrigin;
+
+	glm::vec3 *intersection = NULL;
+	if (faceRoot->intersects(rayOrigin, rayEnd, faceRoot->range, &intersection))
+		return *intersection;
+
+	return glm::vec3(0.0f, 0.0f, 0.0f);
 }
 

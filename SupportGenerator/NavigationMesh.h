@@ -53,7 +53,7 @@ public:
 
 	Graph* getSimpleGraph(float offset, float width);
 	Mesh* convertToMesh(Graph *graph, float offset);
-	void PruneSubBedVertices(glm::mat4 model);
+	void PruneSubBedVertices(glm::mat4 model); // TODO: pruning
 	void Draw(DefaultShader shader);
 
 private:

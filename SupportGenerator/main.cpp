@@ -34,11 +34,14 @@ Camera camera(FOV, scrWidth, scrHeight, glm::vec3(0.0f, 0.0f, 3.0f));
 
 // context:
 int processStep = 0;
+bool selectSupportFlag = false;
 Model *model = {0};
 NavigationMesh *navMesh = { 0 };
 Graph *navGraph = { 0 };
 ConnectionPoints *connections = { 0 };
 SupportPaths *paths = { 0 };
+
+//TODO: add context for UI
 
 int main()
 {
@@ -84,6 +87,7 @@ int main()
 	// ------------------------------------
 	DefaultShader shader("default.vs", "default.fs");
 
+	// TODO: create bed stand-in and axis markers.
 	float vertices[] = {
 		-0.5f, -0.5f, 0.0f,
 		0.5f, -0.5f, 0.0f,
@@ -215,6 +219,16 @@ void updateSupportPaths()
 	std::cout << "Time to pathfind supports: " << glfwGetTime() - time << std::endl;
 }
 
+void updateSupportGeometry()
+{
+	// TODO: updateSupportGeometry
+}
+
+void exportSupportedModel()
+{
+	// TODO: exportSupportedModel
+}
+
 void processIncrement()
 {
 	switch (processStep) {
@@ -223,9 +237,22 @@ void processIncrement()
 	case 1: updateNavMesh();
 		break;
 	case 2: updateSupportPaths();
+		break;
+	case 3: updateSupportGeometry();
+		break;
+	case 4: exportSupportedModel();
 	}
+	
+	if (processStep > 3) {
+		processStep = 0;
+	} else {
+		processStep++;
+	}
+}
 
-	processStep++;
+void selectSupport(double x, double y)
+{
+	// TODO: select support
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -261,7 +288,10 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	
 	switch (button) {
 		case GLFW_MOUSE_BUTTON_LEFT : 
+			// TODO: make sure FOV is up to date
 			camera.StartPan(action == GLFW_PRESS, xpos / scrWidth, ypos / scrHeight);
+			if (selectSupportFlag)
+				selectSupport(xpos / scrWidth, ypos / scrHeight);
 			break;
 		case GLFW_MOUSE_BUTTON_RIGHT : // call movement tracker
 			camera.StartMov(action == GLFW_PRESS, xpos / scrWidth, ypos / scrHeight);

@@ -12,6 +12,7 @@ class DefaultShader
 public:
 	unsigned int ID;
 
+	// TODO: update shader to pass through color
 	DefaultShader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr);
 
 	~DefaultShader();

@@ -74,16 +74,10 @@ Path::~Path()
 void Path::addNode(Node *node)
 {
 	PFNode *pathNode = new PFNode(node);
+	if (path.size() > 0)
+		closed.insert(path.back()->node->ID);
 	path.push_back(pathNode);
 	pathNode->costToEnd = getCost(pathNode);
-
-	closed.insert(node->ID);
-	for (int c : node->connections) {
-		PFNode *pNode = &(*nav)[c];
-		pNode->costToEnd = getCost(pNode);
-		open.push(pNode);
-		seen.insert(c);
-	}
 }
 
 void Path::aStar(bool pathFound)
@@ -91,34 +85,38 @@ void Path::aStar(bool pathFound)
 	while (!open.empty()) {
 		PFNode *current = open.top();
 		glm::vec3 currentPos = current->node->vertex.Position;
-		if (currentPos.x <= 0)
+		if (currentPos.x <= 0) {
 			retracePath(current);
+			return;
+		}
 		closed.insert(current->node->ID);
 		open.pop();
-		PFNode *pNode = &(*nav)[current->node->connections[0]];
-		float dist = glm::distance(currentPos, pNode->node->vertex.Position);
-		float least = pNode->costToEnd + dist;
+		if (current->node->connections.size() > 0) { // TODO: should not be needed- octree has zero-connection nodes.
+			PFNode *pNode = &(*nav)[current->node->connections[0]];
+			float dist = glm::distance(currentPos, pNode->node->vertex.Position);
+			float least = pNode->costToEnd + dist;
 
-		for (int c : current->node->connections) {
-			if (closed.count(c) == 0) {
-				pNode = &(*nav)[c];
-				dist = glm::distance(currentPos, pNode->node->vertex.Position);
-				float toStart = current->costToStart + dist;
-				float temp = pNode->costToEnd + dist;
-				if (temp < least)
-					least = temp;
+			for (int c : current->node->connections) {
+				if (closed.count(c) == 0) {
+					pNode = &(*nav)[c];
+					dist = glm::distance(currentPos, pNode->node->vertex.Position);
+					float toStart = current->costToStart + dist;
+					float temp = pNode->costToEnd + dist;
+					if (temp < least)
+						least = temp;
 
-				if (seen.count(c) == 0 || toStart < pNode->costToStart) { //only add old nodes
-					if (pNode->costToEnd >= 0.0) { //filter invalid nodes
-						pNode->costToStart = toStart;
-						pNode->parent = current;
-						pNode->pathCost = toStart + pNode->costToEnd;
-						open.push(pNode);
+					if (seen.count(c) == 0 || toStart < pNode->costToStart) { //only add old nodes
+						if (pNode->costToEnd >= 0.0) { //filter invalid nodes
+							pNode->costToStart = toStart;
+							pNode->parent = current;
+							pNode->pathCost = toStart + pNode->costToEnd;
+							open.push(pNode);
+						}
 					}
 				}
 			}
+			current->costToEnd = least;
 		}
-		current->costToEnd = least;
 	}
 
 	if (pathFound) {
@@ -221,7 +219,7 @@ SupportPaths::SupportPaths(Graph *model, Graph *nav, std::vector<glm::vec3> p, f
 	paths.reserve(points.size());
 	navGraph->scale(offset);
 
-	// TODO: thread these
+	// TODO: remove these 
 	modelGraph->buildOctree();
 	navGraph->buildOctree();
 }
@@ -233,28 +231,38 @@ SupportPaths::~SupportPaths()
 
 void SupportPaths::FindPaths()
 {
+	int failedPaths = 0;
+
 	for (glm::vec3 &point : points) {
 		Path *path = findStartNode(point);
 		paths.push_back(path);
-		path->aStar(false);
+		if (path->path.size() > 0) {
+			path->open.push(path->path.back());
+			path->aStar(false);
+		} else {
+			failedPaths++;
+		}
 	}
+	std::cout << "Failed paths: " << failedPaths << std::endl;
 
 	regroupPaths();
 }
 
 void SupportPaths::Relax(float degree)
 {
-	//degree is the fraction of nodes to remove- 1 means totally straight
+	// TODO: Path Relaxation
+	// degree is the fraction of nodes to remove- 1 means totally straight
 
 }
 
 void SupportPaths::Geometry(int faces, float tipD)
 {
-
+	// TODO: Geometry()
 }
 
 void SupportPaths::Draw(DefaultShader shader)
 {
+	// TODO: completed paths should have their own geometry- render that.
 	for (Path *path : paths) {
 		path->Draw(shader);
 	}
@@ -262,7 +270,7 @@ void SupportPaths::Draw(DefaultShader shader)
 
 void SupportPaths::DeleteSupport()
 {
-
+	// TODO: DeleteSupport
 }
 
 Path* SupportPaths::findStartNode(glm::vec3 point)
@@ -284,10 +292,25 @@ Path* SupportPaths::findStartNode(glm::vec3 point)
 
 void SupportPaths::regroupPaths()
 {
-
+	// TODO: regroupPaths
 }
 
 void SupportPaths::intersectionGeometry()
 {
+	// TODO: intersectionGeometry
+}
 
+void SupportPaths::tip()
+{
+	// TODO: tip
+}
+
+void SupportPaths::base()
+{
+	// TODO: base
+}
+
+void SupportPaths::cylinderSegment()
+{
+	// TODO: cylinderSegment
 }

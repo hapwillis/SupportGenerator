@@ -150,6 +150,12 @@ void Model::loadModel(std::string &path)
 	//std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
 }
 
+bool Model::exportModel(std::string & path)
+{
+	// TODO: exportModel()
+	return false;
+}
+
 void Model::processNode(aiNode *node, const aiScene *scene)
 {
 	// process all the node's meshes (if any)

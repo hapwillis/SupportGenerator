@@ -14,12 +14,14 @@ Graph::Graph(const Model &model)
 	//WARNING: recalculating normals breaks manifold.
 	//recalculateNormalsFromFaces();
 	//std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
+
+	// TODO: start thread to create octree
 }
 
 Graph::Graph(std::vector<Node*> newNodes, std::vector<Face*> faces)
 	: nodes(newNodes), faceVector(faces)
 {
-
+	// TODO: start thread to create octree
 }
 
 Graph::~Graph()
@@ -107,7 +109,7 @@ void Graph::constructUniqueFaces(int size, std::vector<int> &translate, std::vec
 		//check faceMap for key, then find any equal faces
 		for (auto r = range.first; r != range.second; r++) {
 			Face *f = r->second;
-			if ((indices[i + 1] == f->v2) && (indices[i + 2] == f->v3)) {
+			if ((indices[i + 1] == f->index2) && (indices[i + 2] == f->index3)) {
 				notFound = false;
 				break;
 			}
@@ -120,9 +122,9 @@ void Graph::constructUniqueFaces(int size, std::vector<int> &translate, std::vec
 
 			int indexOfLastFace = faceVector.size();
 			faceVector.push_back(face);
-			nodes[face->v1]->addFace(indexOfLastFace);
-			nodes[face->v2]->addFace(indexOfLastFace);
-			nodes[face->v3]->addFace(indexOfLastFace);
+			nodes[face->index1]->addFace(indexOfLastFace);
+			nodes[face->index2]->addFace(indexOfLastFace);
+			nodes[face->index3]->addFace(indexOfLastFace);
 		}
 	}
 }
@@ -181,9 +183,9 @@ void Graph::populateConnections()
 	std::vector<ordered_set> connections;
 	connections.assign(nodes.size(), ordered_set());
 	for (int i = 0; i < faceVector.size(); i += 3) {
-		int a = faceVector[i]->v1;
-		int b = faceVector[i]->v2;
-		int c = faceVector[i]->v3;
+		int a = faceVector[i]->index1;
+		int b = faceVector[i]->index2;
+		int c = faceVector[i]->index3;
 
 		connections[a].insert(b);
 		connections[a].insert(c);
@@ -233,7 +235,7 @@ void Graph::recalculateNormalsFromFaces()
 void Graph::scale(float displacement)
 {
 	for (Node *n : nodes) {
-		// TODO: 
+		// TODO: scale()
 		//call relocateVert() with offset, newPos, newNormal, and list of faces
 
 		// float dist = 0;
@@ -315,16 +317,17 @@ void Graph::CombineFaces(int n1, int n2, Node *node)
 
 	// update all other faces to new values
 	for (int i : node->faces) {
-		int v1 = faceVector[i]->v1;
-		int v2 = faceVector[i]->v2;
-		int v3 = faceVector[i]->v3;
+		Face *face = faceVector[i];
+		int v1 = face->index1;
+		int v2 = face->index2;
+		int v3 = face->index3;
 
 		if (v1 == n1 || v1 == n2)
-			faceVector[i]->v1 = index;
+			face->index1 = index;
 		if (v2 == n1 || v2 == n2)
-			faceVector[i]->v2 = index;
+			face->index2 = index;
 		if (v3 == n1 || v3 == n2)
-			faceVector[i]->v3 = index;
+			face->index3 = index;
 
 		faceVector[i]->update(nodes);
 	}
@@ -412,17 +415,18 @@ std::vector<Face*> Graph::cleanFaces(std::vector<Node*> &nodeList, std::vector<i
 	std::vector<int> faceTran;
 	faceTran.reserve(faceList.size());
 
-	// TODO: delete faces that have degenerated into lines or points (all verts the same)
-
 	int index = 0;
 	for (Face *f : faceVector) {
 		if (f) {
 			faceTran.push_back(index);
-			f->v1 = translate[f->v1];
-			f->v2 = translate[f->v2];
-			f->v3 = translate[f->v3];
-			faceList.push_back(f);
-			index++;
+			f->index1 = translate[f->index1];
+			f->index2 = translate[f->index2];
+			f->index3 = translate[f->index3];
+
+			if (!(f->index1 == f->index2 || f->index1 == f->index3 || f->index2 == f->index3)) {
+				faceList.push_back(f);
+				index++;
+			}
 		}
 		else {
 			faceTran.push_back(-1);
@@ -456,13 +460,13 @@ bool Graph::verifyFacesFromConnections(int node)
 
 		for (int face : nodes[node]->faces) {
 			if (face != -1 && faceVector[face]) {
-				int facecon = faceVector[face]->v1;
+				int facecon = faceVector[face]->index1;
 				if (nodes[facecon])
 					connectionsFromFaces.insert(facecon);
-				facecon = faceVector[face]->v2;
+				facecon = faceVector[face]->index2;
 				if (nodes[facecon])
 					connectionsFromFaces.insert(facecon);
-				facecon = faceVector[face]->v3;
+				facecon = faceVector[face]->index3;
 				if (nodes[facecon])
 					connectionsFromFaces.insert(facecon);
 			}
@@ -489,9 +493,9 @@ bool Graph::verifyFacesFromConnections(int node)
 				}
 				for (int nf : nodes[node]->faces) {
 					faceConnections.push_back(faceVector[nf]);
-					relatedNodes.push_back(nodes[faceVector[nf]->v1]);
-					relatedNodes.push_back(nodes[faceVector[nf]->v2]);
-					relatedNodes.push_back(nodes[faceVector[nf]->v3]);
+					relatedNodes.push_back(nodes[faceVector[nf]->index1]);
+					relatedNodes.push_back(nodes[faceVector[nf]->index2]);
+					relatedNodes.push_back(nodes[faceVector[nf]->index3]);
 				}
 
 				if (nodes[c])

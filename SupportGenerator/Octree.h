@@ -5,6 +5,8 @@
 
 #include <model.h> 
 
+#include <algorithm>
+
 
 struct ordered_set {
 	std::unordered_set<int> set;
@@ -35,21 +37,28 @@ public:
 struct Face {
 	// TODO: update vertices to be pointers instead of indices
 	const float EPSILON = 0.0000001f;
-	glm::vec3 edgeOne;
-	glm::vec3 edgeTwo;
-	glm::vec3 vertex;
+	glm::vec3 edge21;
+	glm::vec3 edge31;
+	glm::vec3 edge32;
+	glm::vec3 vertex1;
+	glm::vec3 vertex2;
+	glm::vec3 vertex3;
 	glm::vec3 normal;
-	int v1 = -1; 
-	int v2 = -1;
-	int v3 = -1;
+	glm::vec3 edge21Normal;
+	glm::vec3 edge32Normal;
+	glm::vec3 edge13Normal;
+	int index1 = -1; 
+	int index2 = -1;
+	int index3 = -1;
 
-	Face(glm::vec3 e1, glm::vec3 e2, glm::vec3 v);
 	Face(int v1, int v2, int v3, const std::vector<Node*> &nodes);
 
 	void update(const std::vector<Node*> &nodes);
-	bool MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd);
+	bool MollerTrumbore(glm::vec3 rayOrigin, glm::vec3 rayEnd, glm::vec3 **intersectionPtr);
+	float faceDistanceSquared(glm::vec3 point);
 };
 
+// TODO: merge FaceCell into Octant
 struct FaceCell {
 	glm::vec3 center;
 	float range;
@@ -62,7 +71,8 @@ struct FaceCell {
 	void add(Face *f, glm::vec3 center, float doubleSize);
 	int findOctant(glm::vec3 p);
 	FaceCell* populateChild(int i);
-	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize);
+	bool intersects(glm::vec3 rayOrigin, glm::vec3 rayEnd, float doubleSize, glm::vec3 **intersectionPtr);
+	float closestFace(glm::vec3 point, Face **resultSquared);
 };
 
 struct Octant {

@@ -139,13 +139,13 @@ void NavigationMesh::initializeHeap(std::priority_queue<Edge> &edgeHeap) //Appea
 
 	for (unsigned int i = 0; i < graph->faceVector.size(); i += 3) {
 		Face *face = graph->faceVector[i];
-		glm::vec3 a = graph->nodes[face->v1]->vertex.Position;
-		glm::vec3 b = graph->nodes[face->v2]->vertex.Position;
-		glm::vec3 c = graph->nodes[face->v3]->vertex.Position;
+		glm::vec3 a = face->vertex1;
+		glm::vec3 b = face->vertex2;
+		glm::vec3 c = face->vertex3;
 
-		edges.insert(new EdgeContainer(face->v1, face->v2, a, b));
-		edges.insert(new EdgeContainer(face->v2, face->v3, b, c));
-		edges.insert(new EdgeContainer(face->v3, face->v1, c, a));
+		edges.insert(new EdgeContainer(face->index1, face->index2, a, b));
+		edges.insert(new EdgeContainer(face->index2, face->index3, b, c));
+		edges.insert(new EdgeContainer(face->index3, face->index1, c, a));
 	}
 
 	// Insert the unique edges to a heap
@@ -224,9 +224,9 @@ void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &ind
 		for (int f : node->faces) {
 			if (f != -1) { //TODO: remove this once missing faces are filtered out. 
 				Face *face = graph->faceVector[f];
-				indices.push_back(face->v1);
-				indices.push_back(face->v2);
-				indices.push_back(face->v3);
+				indices.push_back(face->index1);
+				indices.push_back(face->index2);
+				indices.push_back(face->index3);
 			} else {
 				invalid++;
 			}

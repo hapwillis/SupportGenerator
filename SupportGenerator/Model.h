@@ -70,8 +70,9 @@ public:
 private:
 	std::string directory;
 
-	/*  Functions   */
 	void loadModel(std::string &path);
+
+	bool exportModel(std::string &path);
 
 	void processNode(aiNode *node, const aiScene *scene);
 

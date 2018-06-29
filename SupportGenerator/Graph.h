@@ -7,7 +7,7 @@
 class Graph
 {
 public:
-	Octree * octree;
+	Octree * octree; // TODO: make private, access only by getter to ensure it's instantiated
 	std::vector<Node*> nodes; //addressible by ID
 	std::vector<Face*> faceVector;
 	float Range = 0.0;
@@ -25,7 +25,7 @@ public:
 	bool verifyFacesFromConnections(int node);
 
 private:
-	void ConcatenateModelMeshes(const Model &model);
+	void ConcatenateModelMeshes(const Model &model); // TODO: move to Model
 	std::vector<int> constructUniqueVertices(int size, std::vector<Mesh> &meshes);
 	void constructUniqueFaces(int size, std::vector<int> &translate, std::vector<Mesh> &meshes);
 	void populateConnections();
