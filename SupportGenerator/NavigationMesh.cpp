@@ -106,6 +106,7 @@ bool operator<(const Edge& a, const Edge& b)
 
 NavigationMesh::NavigationMesh(Model &newModel)
 {
+	heapTest();
 	model = &newModel; 
 	//double time = glfwGetTime();
 	// 27.6864 seconds to build graph
@@ -244,6 +245,88 @@ bool NavigationMesh::edgeValid(Edge edge, Graph *graph)
 	return graph->nodes[edge.indexA] && graph->nodes[edge.indexB];
 }
 
+void NavigationMesh::heapTest()
+{
+	EdgeHeap customClass;
+
+	if (customClass.heapTest()) {
+		std::cout << "Custom edgeheap works correctly." << std::endl;
+	} else {
+		std::cout << "Error! Custom edgeheap failed!" << std::endl;
+	}
+
+	std::priority_queue<Edge> builtInClass;
+	std::default_random_engine gen;
+	std::uniform_real_distribution<double> rand(0.0f, 1000.0f);
+	std::vector<Edge> testEdges;
+	int testNumber = 10000;
+	testEdges.reserve(testNumber * 1.5);
+	for (int i = 0; i < testNumber; i++) {
+		testEdges.push_back(Edge(0, 0, rand(gen)));
+	}
+
+	if (!builtInClass.empty()) 
+		std::cout << "Error!  Edgeheap not empty!" << std::endl;
+	
+	for (Edge e : testEdges) {
+		builtInClass.push(e);
+	}
+	if (builtInClass.empty()) {
+		std::cout << "Error!  Edgeheap empty!" << std::endl;
+	}
+
+	int emptyHeapErrors = 0;
+	int outOfOrderErrors = 0;
+	float heapMin = builtInClass.top().length;
+	builtInClass.pop();
+	for (int i = 0; i < testNumber - 1; i++) {
+		if (builtInClass.empty())
+			emptyHeapErrors++;
+		if (builtInClass.top().length < heapMin)
+			outOfOrderErrors++;
+		
+		heapMin = builtInClass.top().length;
+		builtInClass.pop();
+	}
+	if (emptyHeapErrors > 0)
+		std::cout<< emptyHeapErrors << " Edgeheap empty errors!" << std::endl;
+	if (outOfOrderErrors > 0)
+		std::cout << outOfOrderErrors << " edges returned out of order!" << std::endl;
+	if (!builtInClass.empty()) {
+		std::cout << "Error!  Edgeheap not empty!" << std::endl;
+	}
+
+	int size = 0;
+	for (Edge e : testEdges) {
+		size++;
+		builtInClass.push(e);
+	}
+	for (int i = 0; i < testNumber / 2; i++) {
+		size--;
+		builtInClass.pop();
+	}
+	for (int i = 0; i < testNumber / 2; i++) {
+		size++;
+		testEdges.push_back(Edge(0, 0, rand(gen)));
+		builtInClass.push(testEdges.back());
+	}
+	size--;
+	heapMin = builtInClass.top().length;
+	builtInClass.pop();
+	outOfOrderErrors = 0;
+	while (!builtInClass.empty()) {
+		size--;
+		if (builtInClass.top().length < heapMin)
+			outOfOrderErrors++;
+		builtInClass.pop();
+	}
+	if (outOfOrderErrors > 0)
+		std::cout << outOfOrderErrors << " edges returned out of order!" << std::endl;
+	if (size != 0) {
+		std::cout << "Error!  Edges pushed != Edges popped!" << std::endl;
+	}
+}
+
 void NavigationMesh::Draw(DefaultShader shader)
 {
 	if (mesh) {
@@ -253,4 +336,195 @@ void NavigationMesh::Draw(DefaultShader shader)
 	}
 }
 
+EdgeHeap::EdgeHeap()
+{
+	heap.reserve(defaultSize);
+	heap.push_back(NULL); //fill up spot zero
+}
 
+EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
+{
+	heap.reserve(2 * faces.size() + 1);
+	heap.push_back(NULL); //fill up spot zero
+	EdgeSet edges;
+
+	for (unsigned int i = 0; i < faces.size(); i += 3) {
+		Face *face = faces[i];
+		glm::vec3 a = face->vertex1;
+		glm::vec3 b = face->vertex2;
+		glm::vec3 c = face->vertex3;
+
+		edges.insert(new EdgeContainer(face->index1, face->index2, a, b));
+		edges.insert(new EdgeContainer(face->index2, face->index3, b, c));
+		edges.insert(new EdgeContainer(face->index3, face->index1, c, a));
+	}
+
+	// Insert the unique edges to a heap
+	for (EdgeContainer *e : edges.edges) {
+		push(new Edge(e->indexA, e->indexB, e->len));
+	}
+}
+
+EdgeHeap::~EdgeHeap()
+{
+
+}
+
+bool EdgeHeap::empty()
+{
+	return heap.size() == 1;
+}
+
+Edge * EdgeHeap::pop()
+{
+	// This method is O(2logn).  
+	// An O(logn) method is to promote children until you reach a leaf,
+	// then filling that leaf with another leaf and bubbling it up.
+	Edge *topEdge = heap[1];
+	Edge *bubbleEdge = heap.back();
+	heap[1] = bubbleEdge;
+	heap.pop_back();
+
+	int index = 1;
+	int leftChild = 2;
+	
+	while (leftChild < heap.size()) {
+		float minValue = bubbleEdge->length;
+		int minIndex = index;
+
+		float childValue = heap[leftChild]->length;
+		if (childValue < minValue) {
+			minValue = childValue;
+			minIndex = leftChild;
+		}
+		
+		int rightChild = leftChild + 1;
+		if (rightChild < heap.size()) {
+			childValue = heap[rightChild]->length;
+			if (childValue < minValue) {
+				minValue = childValue;
+				minIndex = rightChild;
+			}
+		}
+
+		if (minIndex == index)
+			break;
+
+		heap[index] = heap[minIndex];
+		heap[minIndex] = bubbleEdge;
+		index = minIndex;
+		leftChild = index << 1;
+	}
+
+	return topEdge;
+}
+
+void EdgeHeap::push(Edge * e)
+{
+	int index = heap.size();
+	heap.push_back(e);
+	int parent = index >> 1; // Divide by two
+
+	if (parent > 0) {
+		// Can this be threaded?  It's overkill, but if it lets
+		// the caller start faster then it might be worth it.
+		Edge *swapHolder = heap[parent];
+		float insertValue = e->length;
+		float parentValue = heap[parent]->length;
+
+		while (insertValue < parentValue) { // i/2 is equivalent to floor(i/2)
+			heap[index] = swapHolder;
+			heap[parent] = e;
+
+			index = parent;
+			// If index is at the top of the heap (ie at 1):
+			// Let parentValue = insertValue so the loop breaks
+			// Alternately you could branch and break, but that's more inside the loop
+			if (index > 1) 
+				parent >>= 1;
+
+			swapHolder = heap[parent];
+			parentValue = swapHolder->length;
+		}
+	}
+}
+
+bool EdgeHeap::heapTest()
+{
+	std::default_random_engine gen;
+	std::uniform_real_distribution<double> rand(0.0, 1000.0);
+	std::vector<Edge*> testEdges;
+	int testNumber = 10000;
+
+	testEdges.reserve(testNumber * 1.5);
+	for (int i = 0; i < testNumber; i++) {
+		testEdges.push_back(new Edge(0, 0, rand(gen)));
+	}
+
+	if (!empty()) {
+		std::cout << "Error!  Edgeheap not empty!" << std::endl;
+		return false;
+	}
+
+	for (Edge *e : testEdges) {
+		push(e);
+	}
+	if (empty()) {
+		std::cout << "Error!  Edgeheap empty!" << std::endl;
+		return false;
+	}
+
+	float heapMin = pop()->length;
+	for (int i = 0; i < testNumber - 1; i++) {
+		if (empty()) {
+			std::cout << "Error!  Edgeheap empty!" << std::endl;
+			return false;
+		}
+			
+		Edge *e = pop();
+		if (e->length < heapMin) {
+			std::cout << "Error!  Edges returned out of order!" << std::endl;
+			return false;
+		}
+
+		heapMin = e->length;
+	}
+	if (!empty()) {
+		std::cout << "Error!  Edgeheap not empty!" << std::endl;
+		return false;
+	}
+		
+	int size = 0;
+	for (Edge *e : testEdges) {
+		size++;
+		push(e);
+	}
+	for (int i = 0; i < testNumber / 2; i++) {
+		size--;
+		pop();
+	}
+	for (int i = 0; i < testNumber / 2; i++) {
+		size++;
+		testEdges.push_back(new Edge(0, 0, rand(gen)));
+		push(testEdges.back());
+	}
+	size--;
+	heapMin = pop()->length;
+	while (!empty()) {
+		size--;
+		Edge *e = pop();
+		if (e->length < heapMin) {
+			std::cout << "Error!  Edges returned out of order!" << std::endl;
+			return false;
+		}
+	}
+	if (size != 0) {
+		std::cout << "Error!  Edges pushed != Edges popped!" << std::endl;
+		return false;
+	}
+
+	for (Edge *e : testEdges) {
+		delete e;
+	}
+	return true;
+}

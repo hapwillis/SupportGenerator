@@ -81,7 +81,7 @@ float Model::BoundingSphere()
 {
 	if (boundingRadius == 0.0) {
 		// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
-		boundingRadius = AABBsize();
+		boundingRadius = AABBsize() / 2.0;
 	}
 
 	return boundingRadius;

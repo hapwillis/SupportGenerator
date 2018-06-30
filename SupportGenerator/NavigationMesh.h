@@ -2,6 +2,8 @@
 
 #include "Graph.h"
 
+#include <random>
+
 struct Edge {
 	unsigned int indexA;
 	unsigned int indexB;
@@ -18,6 +20,21 @@ struct EdgeContainer {
 	float len;
 
 	EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2);
+};
+
+class EdgeHeap {
+public:
+	const unsigned int defaultSize = 20;
+	std::vector<Edge*> heap;
+
+	EdgeHeap();
+	EdgeHeap(std::vector<Face*> &faces);
+	~EdgeHeap();
+
+	bool empty();
+	Edge* pop();
+	void push(Edge *e);
+	bool heapTest();
 };
 
 struct EdgeSet {
@@ -59,5 +76,7 @@ private:
 	Graph* decimateMesh(float minLength);
 	void facesToIndices(Graph *graph, std::vector<unsigned int> &indices);
 	bool edgeValid(Edge edge, Graph *graph);
+	
+	void heapTest();
 };
 
