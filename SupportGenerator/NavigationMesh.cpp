@@ -104,11 +104,9 @@ bool operator<(const Edge& a, const Edge& b)
 	return a.length > b.length;
 }
 
-NavigationMesh::NavigationMesh(Model &newModel, float offset, float width)
+NavigationMesh::NavigationMesh(Model &newModel)
 {
-	model = &newModel;
-	displacement = offset + (width * 0.5f);
-	supportWidth = width;
+	model = &newModel; 
 	//double time = glfwGetTime();
 	// 27.6864 seconds to build graph
 	graph = new Graph(*model);
@@ -120,11 +118,11 @@ NavigationMesh::~NavigationMesh()
 	
 }
 
-Graph * NavigationMesh::getSimpleGraph(float offset, float width)
+Graph * NavigationMesh::getSimpleGraph(float minLength)
 {
 	//float time = glfwGetTime();
 	// 57.52 seconds to run decimateMesh
-	navGraph = decimateMesh();
+	Graph *navGraph = decimateMesh(minLength);
 	//std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
 	return navGraph;
@@ -154,14 +152,13 @@ void NavigationMesh::initializeHeap(std::priority_queue<Edge> &edgeHeap) //Appea
 	}
 }
 
-Graph* NavigationMesh::decimateMesh()
+Graph* NavigationMesh::decimateMesh(float minLength)
 {
 	// TODO: rewrite this so it doesn't corrupt the graph nodes.
 	std::priority_queue<Edge> edgeHeap;
 	// TODO: heap appears to be broken
 	initializeHeap(edgeHeap); // TODO: write custom heap that uses pointers
 
-	float minLength = supportWidth * 0.25f;
 	float smallestEdge = minLength - 1.0f; //TODO: remove configuration, set to sane defaults
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
@@ -209,6 +206,12 @@ Mesh* NavigationMesh::convertToMesh(Graph *graph, float offset)
 	mesh = new Mesh(vertices, indices);
 	//std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
 	return mesh;
+}
+
+void NavigationMesh::PruneSubBedVertices(glm::mat4 model)
+{
+
+	// TODO: pruning
 }
 
 void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)

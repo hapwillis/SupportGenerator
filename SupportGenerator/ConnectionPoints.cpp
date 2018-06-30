@@ -3,7 +3,7 @@
 
 
 ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) : 
-	model(graph), overhang((M_PI / 2.0) - maxAngle)
+	model(graph), overhang((M_PI / 2.0f) - maxAngle)
 {
 	//For poisson, must be ># of disconnected support areas
 	// For Mitchell's, seeds = max number of support points
@@ -118,19 +118,13 @@ Face * ConnectionPoints::randomFace()
 glm::vec3 ConnectionPoints::randomPoint()
 {
 	Face *face = randomFace();
-	glm::vec3 v1, e1, tVert, e2, randPoint;
 	float r1 = contDistribution(generator);
 	float r2 = contDistribution(generator);
 
-	// TODO: remove this nested dereferencing
-	v1 = model->nodes[face->index1]->vertex.Position;
-	e1 = model->nodes[face->index2]->vertex.Position - v1;
-	tVert = r1 * e1 + v1;
+	// TODO: This is nonuniform.  Points are biased towards v2 and v1.
+	glm::vec3 tVert = r1 * face->edge21 + face->vertex1;
 
-	e2 = model->nodes[face->index3]->vertex.Position - tVert;
-	randPoint = r2 * e2 + tVert;
-
-	return randPoint;
+	return r2 * (face->vertex3 - tVert) + tVert;
 }
 
 float ConnectionPoints::prominence(glm::vec3 point)
@@ -140,15 +134,11 @@ float ConnectionPoints::prominence(glm::vec3 point)
 
 glm::vec3 ConnectionPoints::lowestVertex(Face * face)
 {
-	// TODO: remove this nested dereferencing
-	glm::vec3 v1 = model->nodes[face->index1]->vertex.Position;
-	glm::vec3 v2 = model->nodes[face->index2]->vertex.Position;
-	glm::vec3 v3 = model->nodes[face->index3]->vertex.Position;
-	float lowest = std::min(v1.x, v2.x);
+	float x1 = face->vertex1.x;
+	float x2 = face->vertex2.x;
+	float x3 = face->vertex3.x;
 
-	if (v3.x < lowest)
-		return v3;
-	if (v2.x < v1.x)
-		return v2;
-	return v1;
+	// TODO: finish lowestVertex
+
+	return face->vertex1;
 }

@@ -1,18 +1,33 @@
 #include "Graph.h"
 
-Graph::Graph(const Model &model)
+Graph::Graph(Model &model)
 {
-	//float time = glfwGetTime();
-	//0.131 seconds to remove vertices
-	ConcatenateModelMeshes(model);
-	//std::cout << "Time to simplify Mesh: " << glfwGetTime() - time << std::endl;
+	Range = model.AABBsize();
+	int index = 0;
+	nodes.reserve(model.denseVertices.size());
+	for (Vertex *vertex : model.denseVertices) {
+		nodes.push_back(new Node(index, *vertex));
+		index++;
+	}
+
+	faceVector.reserve(std::ceil(model.denseIndices.size() / 3.0));
+	for (int i = 0; i < model.denseIndices.size(); i += 3) {
+		faceVector.push_back(new Face(model.denseIndices[i], 
+								model.denseIndices[i + 1], 
+								model.denseIndices[i + 2], nodes));
+
+		int index = faceVector.size() - 1;
+		Face *face = faceVector.back();
+		nodes[face->index1]->addFace(index);
+		nodes[face->index2]->addFace(index);
+		nodes[face->index3]->addFace(index);
+	}
 
 	// Populate every node with its faces and connections:
 	populateConnections();
 
 	//float time = glfwGetTime();
-	//WARNING: recalculating normals breaks manifold.
-	//recalculateNormalsFromFaces();
+	//recalculateNormalsFromFaces(); //WARNING: recalculating normals breaks manifold.
 	//std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
 
 	// TODO: start thread to create octree
@@ -27,154 +42,32 @@ Graph::Graph(std::vector<Node*> newNodes, std::vector<Face*> faces)
 Graph::~Graph()
 {
 	delete(octree);
-	for (Face *f : faceVector) {
-		delete(f);
-	}
+	for (Node *n : nodes)
+		delete n;
+	for (Face *f : faceVector)
+		delete f;
 }
 
-
-void Graph::ConcatenateModelMeshes(const Model &model)
+Octree* Graph::getOctree()
 {
-	std::vector<Mesh> meshes;
-	for (Mesh m : model.meshes) {
-		meshes.push_back(m);
-	}
+	if (!octree)
+		octree = new Octree(&nodes, &faceVector, getRange());
 
-	int translateSize = 0, indicesSize = 0;
-	for (Mesh mesh : meshes) {
-		translateSize += mesh.vertices.size();
-		indicesSize += mesh.indices.size();
-	}
-
-	std::vector<int> translate;
-	translate = constructUniqueVertices(translateSize, meshes);
-	constructUniqueFaces(indicesSize, translate, meshes);
+	return octree;
 }
 
-std::vector<int> Graph::constructUniqueVertices(int size, std::vector<Mesh> &meshes)
-{
-	std::vector<int> translate;
-	translate.reserve(size);
-	std::unordered_multimap<float, int> vertexMap;
-	int vIndex = 0;
-
-	for (int i = 0; i < meshes.size(); i++) {
-		Mesh *mesh = &meshes[i];
-		for (Vertex v : mesh->vertices) {
-			bool notFound = true;
-			float key = v.Position.x;
-			auto range = vertexMap.equal_range(key);
-
-			//check vertexMap for key, find any equal vertices
-			for (auto r = range.first; r != range.second; r++) {
-				int index = r->second;
-				// if found, set translate[tIndex] = value
-				if (pointsEqual(v.Position, nodes[index]->vertex.Position)) {
-					translate.push_back(index);
-					notFound = false;
-					break;
-				}
-			}
-			//if not found, insert this point and set translate[tIndex] = vIndex
-			if (notFound) {
-				translate.push_back(vIndex);
-				vertexMap.insert(std::pair<float, int>(key, vIndex));
-				nodes.push_back(new Node(vIndex, v));
-				vIndex++;
-			}
-		}
-	}
-
-	return translate;
-}
-
-void Graph::constructUniqueFaces(int size, std::vector<int> &translate, std::vector<Mesh> &meshes)
-{
-	std::vector<unsigned int> indices;
-	indices.reserve(size);
-	int offset = 0;
-	for (int i = 0; i < meshes.size(); i++) {
-		for (int j : meshes[i].indices) {
-			indices.push_back(translate[j + offset]);
-		}
-		offset += meshes[i].vertices.size();
-	}
-
-	std::unordered_multimap<int, Face*> faceMap;
-	for (int i = 0; i < indices.size(); i += 3) {
-		bool notFound = true;
-		int key = indices[i];
-		auto range = faceMap.equal_range(key);
-
-		//check faceMap for key, then find any equal faces
-		for (auto r = range.first; r != range.second; r++) {
-			Face *f = r->second;
-			if ((indices[i + 1] == f->index2) && (indices[i + 2] == f->index3)) {
-				notFound = false;
-				break;
-			}
-		}
-
-		//if not found, insert this face
-		if (notFound) {
-			Face *face = new Face(key, indices[i + 1], indices[i + 2], nodes);
-			faceMap.insert(std::pair<int, Face*>(key, face));
-
-			int indexOfLastFace = faceVector.size();
-			faceVector.push_back(face);
-			nodes[face->index1]->addFace(indexOfLastFace);
-			nodes[face->index2]->addFace(indexOfLastFace);
-			nodes[face->index3]->addFace(indexOfLastFace);
-		}
-	}
-}
-
-bool Graph::pointsEqual(glm::vec3 p, glm::vec3 q)
-{
-	//return !glm::all(glm::equal(q, p));
-	bool a = false;
-	bool b = false;
-	bool c = false;
-	if (std::abs(p.x - q.x) == 0.0) {
-		a = true;
-	}
-	if (std::abs(p.y - q.y) == 0.0) {
-		b = true;
-	}
-	if (std::abs(p.z - q.z) == 0.0) {
-		c = true;
-	}
-
-	return (a && b && c);
-}
-
-void Graph::buildOctree()
-{
-	octree = new Octree(&nodes, &faceVector, getRange());
-}
-
-float Graph::getRange()
+float Graph::getRange() 
 {
 	if (Range <= 0.0) {
-		float deltaX = 0.0, deltaY = 0.0, deltaZ = 0.0;
-		for (Node *n : nodes) {
-			if (n) {
-				glm::vec3 vert = n->vertex.Position;
-
-				int t = std::abs(vert.x);
-				if (t > deltaX)
-					deltaX = t;
-				t = std::abs(vert.y);
-				if (t > deltaY)
-					deltaY = t;
-				t = std::abs(vert.z);
-				if (t > deltaZ)
-					deltaZ = t;
-			}
+		float delta = 0.0;
+		for (Node *node : nodes) {
+			glm::vec3 v = node->vertex.Position;
+			delta = std::max({ delta, std::abs(v.x), std::abs(v.y), std::abs(v.z) });
 		}
 
-		Range = 2.0 * std::max({ deltaX, deltaY, deltaZ });
+		Range = 2.0 * delta;
 	}
+
 	return Range;
 }
 

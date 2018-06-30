@@ -150,13 +150,10 @@ int main()
 
 		if (model)
 			model->Draw(shader);
-
 		if (navMesh)
 			navMesh->Draw(shader); 
-
 		if (connections)
 			connections->Draw(shader);
-
 		if (paths)
 			paths->Draw(shader);
 
@@ -190,7 +187,7 @@ void updateConnectionPoints()
 
 	if (navMesh)
 		delete(navMesh);
-	navMesh = new NavigationMesh(*model, SupportOffset, SupportWidth);
+	navMesh = new NavigationMesh(*model);
 
 	if (connections)
 		delete(connections);
@@ -201,7 +198,7 @@ void updateConnectionPoints()
 void updateNavMesh()
 {
 	double time = glfwGetTime();
-	navGraph = navMesh->getSimpleGraph(SupportOffset, SupportWidth);
+	navGraph = navMesh->getSimpleGraph((0.5f * SupportWidth) + SupportOffset);
 	navMesh->convertToMesh(navGraph, SupportOffset);
 	std::cout << "Time to create navigation mesh: " << glfwGetTime() - time << std::endl;
 }
@@ -212,7 +209,7 @@ void updateSupportPaths()
 	if (paths)
 		delete(paths);
 	// TODO: this won't be needed if decimateMesh is non-mutating.
-	navMesh = new NavigationMesh(*model, SupportOffset, SupportWidth);
+	navMesh = new NavigationMesh(*model);
 	paths = new SupportPaths(navMesh->graph, navGraph, connections->points, 0.5, SupportOffset);
 	paths->FindPaths();
 	paths->Geometry(6, 0.0f);
@@ -221,12 +218,16 @@ void updateSupportPaths()
 
 void updateSupportGeometry()
 {
+	double time = glfwGetTime();
 	// TODO: updateSupportGeometry
+	std::cout << "Time to create support geometry: " << glfwGetTime() - time << std::endl;
 }
 
 void exportSupportedModel()
 {
+	double time = glfwGetTime();
 	// TODO: exportSupportedModel
+	std::cout << "Time to export supported model: " << glfwGetTime() - time << std::endl;
 }
 
 void processIncrement()

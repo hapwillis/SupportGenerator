@@ -218,10 +218,6 @@ SupportPaths::SupportPaths(Graph *model, Graph *nav, std::vector<glm::vec3> p, f
 
 	paths.reserve(points.size());
 	navGraph->scale(offset);
-
-	// TODO: remove these 
-	modelGraph->buildOctree();
-	navGraph->buildOctree();
 }
 
 SupportPaths::~SupportPaths()
@@ -262,7 +258,8 @@ void SupportPaths::Geometry(int faces, float tipD)
 
 void SupportPaths::Draw(DefaultShader shader)
 {
-	// TODO: completed paths should have their own geometry- render that.
+	// TODO: completed paths should have their own geometry- render that 
+	// if it exists, otherwise render the wireframes.
 	for (Path *path : paths) {
 		path->Draw(shader);
 	}
@@ -275,16 +272,16 @@ void SupportPaths::DeleteSupport()
 
 Path* SupportPaths::findStartNode(glm::vec3 point)
 {
-	Face *face = modelGraph->octree->getNearestFace(point);
+	Face *face = modelGraph->getOctree()->getNearestFace(point);
 	Path *path = new Path(&nodes, maxOverhang, transform);
 	Node *startNode = new Node(-1, point, face->normal, true);
 	path->addNode(startNode);
 
-	glm::vec3 pointTwo = navGraph->octree->rayCast(point, face->normal);
+	glm::vec3 pointTwo = navGraph->getOctree()->rayCast(point, face->normal);
 	Node *nodeTwo = new Node(-1, pointTwo, face->normal, true);
 	path->addNode(nodeTwo);
 
-	int index = navGraph->octree->getNearestNodeIndex(pointTwo);
+	int index = navGraph->getOctree()->getNearestNodeIndex(pointTwo);
 	path->addNode(navGraph->nodes[index]);
 
 	return path;

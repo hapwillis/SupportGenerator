@@ -41,24 +41,22 @@ class NavigationMesh
 public:
 	unsigned int VAO, VBO, EBO;
 	Model *model = NULL; 
-	Graph *graph = NULL; //TODO: rename to graph
-	Mesh *mesh = NULL; //TODO: rename to mesh
-	float displacement; //TODO: remove
-	float supportWidth; //TODO: remove
-	Graph *navGraph = NULL; //TODO: remove
+	Graph *graph = NULL; 
+	Mesh *mesh = NULL; 
 
-	NavigationMesh(Model &newModel, float offset, float width);
-	NavigationMesh(Model &model);
+	NavigationMesh(Model &newModel); 
 	~NavigationMesh();
 
-	Graph* getSimpleGraph(float offset, float width);
+	// TODO: return smart pointers for mesh and graph
+	// suggested value of minDist = 0.5 * (support width) + offset
+	Graph* getSimpleGraph(float minLength);
 	Mesh* convertToMesh(Graph *graph, float offset);
-	void PruneSubBedVertices(glm::mat4 model); // TODO: pruning
+	void PruneSubBedVertices(glm::mat4 model); 
 	void Draw(DefaultShader shader);
 
 private:
 	void initializeHeap(std::priority_queue<Edge> &edgeHeap);
-	Graph* decimateMesh();
+	Graph* decimateMesh(float minLength);
 	void facesToIndices(Graph *graph, std::vector<unsigned int> &indices);
 	bool edgeValid(Edge edge, Graph *graph);
 };

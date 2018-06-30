@@ -606,6 +606,7 @@ int Octree::getNearestNodeIndex(glm::vec3 p)
 
 Face * Octree::getNearestFace(glm::vec3 p)
 {
+	// TODO: *majorly* fucked
 	Face *result = NULL;
 	float distanceSquared = faceRoot->closestFace(p, &result);
 

@@ -59,6 +59,11 @@ void Mesh::setupMesh()
 Model::Model(std::string &path)
 {
 	loadModel(path);
+
+	//float time = glfwGetTime();
+	//0.131 seconds to remove vertices
+	concatenateModelMeshes();
+	//std::cout << "Time to simplify Mesh: " << glfwGetTime() - time << std::endl;
 }
 
 Model::~Model()
@@ -74,42 +79,26 @@ void Model::Draw(DefaultShader shader)
 
 float Model::BoundingSphere()
 {
-	if (boundingRadius != 0.0) {
-		return boundingRadius;
+	if (boundingRadius == 0.0) {
+		// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
+		boundingRadius = AABBsize();
 	}
-	// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
-	float maxX = 0, minX = 0;
-	float maxY = 0, minY = 0;
-	float maxZ = 0, minZ = 0;
-
-	for (int i = 0; i < meshes.size(); i++) {
-		Mesh *mesh = &meshes[i];
-		faces += mesh->indices.size();
-		//unsigned int size = mesh->vertices.size();
-		for (Vertex v : mesh->vertices) {
-			vertices++;
-			glm::vec3 *vert = &(v.Position);
-
-			if (vert->x > maxX)
-				maxX = vert->x;
-			if (vert->x < minX)
-				minX = vert->x;
-
-			if (vert->y > maxY)
-				maxY = vert->y;
-			if (vert->y < minY)
-				minY = vert->y;
-
-			if (vert->z > maxZ)
-				maxZ = vert->z;
-			if (vert->z < minZ)
-				minZ = vert->z;
-		}
-	}
-
-	boundingRadius = std::min({ (maxX - minX), (maxY - minY), (maxZ - minZ) });
 
 	return boundingRadius;
+}
+
+float Model::AABBsize()
+{
+	if (AABB <= 0.0) {
+		float delta = 0.0;
+		for (Vertex *vertex : denseVertices) {
+			glm::vec3 v = vertex->Position;
+			delta = std::max({ delta, std::abs(v.x), std::abs(v.y), std::abs(v.z) });
+		}
+
+		AABB = 2.0 * delta;
+	}
+	return AABB;
 }
 
 void Model::loadModel(std::string &path)
@@ -174,21 +163,19 @@ void Model::processNode(aiNode *node, const aiScene *scene)
 Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 {
 	std::vector<Vertex> vertices (mesh->mNumVertices);
-	//vertices.reserve(mesh->mNumVertices);
 	std::vector<unsigned int> indices(mesh->mNumFaces * 3);
-	//indices.reserve(mesh->mNumFaces);
 
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		glm::vec3 vector;
 		Vertex vertex;
-		// positions
+
 		aiVector3D *vert = &(mesh->mVertices[i]);
 		vector.x = vert->x;
 		vector.y = vert->y;
 		vector.z = vert->z;
 		vertex.Position = vector;
-		// normals
+
 		aiVector3D *norm = &(mesh->mNormals[i]);
 		vector.x = norm->x;
 		vector.y = norm->y;
@@ -196,7 +183,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 		vertex.Normal = vector;
 		vertex.Wireframe = 0.0f;
 
-		vertices[i] = vertex; //still slow
+		vertices[i] = vertex; 
 	}
 
 	// process indices
@@ -212,4 +199,118 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 	}
 
 	return Mesh(vertices, indices);
+}
+
+void Model::concatenateModelMeshes()
+{
+	int translateSize = 0, indicesSize = 0;
+	for (Mesh mesh : meshes) {
+		translateSize += mesh.vertices.size();
+		indicesSize += mesh.indices.size();
+	}
+
+	std::vector<int> translate;
+	translate = constructUniqueVertices(translateSize);
+	constructUniqueFaces(indicesSize, translate);
+}
+
+std::vector<int> Model::constructUniqueVertices(int size)
+{ //TODO: can be combined with processMesh.
+	std::vector<int> translate;
+	translate.reserve(size);
+	std::unordered_multimap<float, int> vertexMap;
+	int vIndex = 0;
+
+	for (int i = 0; i < meshes.size(); i++) {
+		Mesh *mesh = &meshes[i];
+		for (int j = 0; j < mesh->vertices.size(); j++) {
+			Vertex *v = &mesh->vertices[j];
+			int index = checkMultimap(v, vertexMap);
+
+			if (index < 1) { 
+				//if not found, insert this point and set translate[tIndex] = vIndex
+				translate.push_back(vIndex);
+				vertexMap.insert(std::pair<float, int>(v->Position.x, vIndex));
+				denseVertices.push_back(v);
+				vIndex++;
+			} else {
+				translate.push_back(index);
+			}
+		}
+	}
+
+	return translate;
+}
+
+int Model::checkMultimap(Vertex *v, std::unordered_multimap<float, int> &vertexMap)
+{
+	auto range = vertexMap.equal_range(v->Position.x);
+
+	//check vertexMap for key, find any equal vertices
+	for (auto r = range.first; r != range.second; r++) {
+		int index = r->second;
+		// if found, set translate[tIndex] = value
+		if (pointsEqual(v->Position, denseVertices[index]->Position)) {
+			return index;
+		}
+	}
+
+	return -1;
+}
+
+void Model::constructUniqueFaces(int size, std::vector<int> &translate)
+{
+	std::vector<unsigned int> indices;
+	indices.reserve(size);
+	int offset = 0;
+	for (int i = 0; i < meshes.size(); i++) {
+		for (int j : meshes[i].indices) {
+			indices.push_back(translate[j + offset]);
+		}
+		offset += meshes[i].vertices.size();
+	}
+
+	std::unordered_multimap<int, int> faceMap;
+	for (int i = 0; i < indices.size(); i += 3) {
+		bool notFound = true;
+		int key = indices[i];
+		auto range = faceMap.equal_range(key);
+
+		//check faceMap for key, then find any equal faces
+		for (auto r = range.first; r != range.second; r++) {
+			int index = r->second;
+			if ((indices[i + 1] == indices[index]) && (indices[i + 2] == indices[index + 1])) {
+				notFound = false;
+				break;
+			}
+		}
+
+		//if not found, insert this face
+		if (notFound) {
+			faceMap.insert(std::pair<int, int>(key, i + 1));
+
+			denseIndices.push_back(key);
+			denseIndices.push_back(indices[i + 1]);
+			denseIndices.push_back(indices[i + 2]);
+		}
+	}
+}
+
+bool Model::pointsEqual(glm::vec3 p, glm::vec3 q)
+{
+	//return !glm::all(glm::equal(q, p));
+	bool a = false;
+	bool b = false;
+	bool c = false;
+	if (std::abs(p.x - q.x) == 0.0) {
+		a = true;
+	}
+	if (std::abs(p.y - q.y) == 0.0) {
+		b = true;
+	}
+	if (std::abs(p.z - q.z) == 0.0) {
+		c = true;
+	}
+
+	return (a && b && c);
 }
