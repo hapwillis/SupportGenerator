@@ -106,7 +106,6 @@ bool operator<(const Edge& a, const Edge& b)
 
 NavigationMesh::NavigationMesh(Model &newModel)
 {
-	heapTest();
 	model = &newModel; 
 	//double time = glfwGetTime();
 	// 27.6864 seconds to build graph
@@ -123,87 +122,61 @@ Graph * NavigationMesh::getSimpleGraph(float minLength)
 {
 	//float time = glfwGetTime();
 	// 57.52 seconds to run decimateMesh
-	Graph *navGraph = decimateMesh(minLength);
+
+	Graph *smallGraph = new Graph(graph->nodes, graph->faceVector);
+	decimateMesh(smallGraph, minLength);
 	//std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
-	return navGraph;
+	return smallGraph;
 }
 
-void NavigationMesh::initializeHeap(std::priority_queue<Edge> &edgeHeap) //Appears to not be handling edges properly
+void NavigationMesh::decimateMesh(Graph *g, float minLength)
 {
-	if(!edgeHeap.empty()) {
-		edgeHeap = std::priority_queue<Edge>();
-	}
-	EdgeSet edges;
-
-	for (unsigned int i = 0; i < graph->faceVector.size(); i += 3) {
-		Face *face = graph->faceVector[i];
-		glm::vec3 a = face->vertex1;
-		glm::vec3 b = face->vertex2;
-		glm::vec3 c = face->vertex3;
-
-		edges.insert(new EdgeContainer(face->index1, face->index2, a, b));
-		edges.insert(new EdgeContainer(face->index2, face->index3, b, c));
-		edges.insert(new EdgeContainer(face->index3, face->index1, c, a));
-	}
-
-	// Insert the unique edges to a heap
-	for (EdgeContainer *e : edges.edges) {
-		edgeHeap.push(Edge(e->indexA, e->indexB, e->len));
-	}
-}
-
-Graph* NavigationMesh::decimateMesh(float minLength)
-{
-	// TODO: rewrite this so it doesn't corrupt the graph nodes.
-	std::priority_queue<Edge> edgeHeap;
-	// TODO: heap appears to be broken
-	initializeHeap(edgeHeap); // TODO: write custom heap that uses pointers
-
-	float smallestEdge = minLength - 1.0f; //TODO: remove configuration, set to sane defaults
+	EdgeHeap edgeHeap(g->faceVector);
+	float smallestEdge = 0.0f;
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
-		Edge e = edgeHeap.top();
-		edgeHeap.pop();
-		while (!edgeValid(e, graph) && !edgeHeap.empty()) {
-			e = edgeHeap.top();
-			edgeHeap.pop();
+		Edge *e = edgeHeap.pop();
+		while (!edgeValid(e, g) && !edgeHeap.empty()) {
+			delete(e);
+			e = edgeHeap.pop();
 		}
-		smallestEdge = e.length;
 
-		int newIndex = graph->CombineNodes(e.indexA, e.indexB);
-		glm::vec3 a = graph->nodes[newIndex]->vertex.Position;
+		int newIndex = g->CombineNodes(e->indexA, e->indexB);
+		glm::vec3 a = g->nodes[newIndex]->vertex.Position;
 
 		//	add all the new edges to the minheap
-		for (int connection : graph->nodes[newIndex]->connections) {
-			Node *node = graph->nodes[connection];
+		for (int connection : g->nodes[newIndex]->connections) {
+			Node *node = g->nodes[connection];
 			if (node) {
 				glm::vec3 b = node->vertex.Position;
 				float length = glm::distance(a, b);
 		
-				edgeHeap.push(Edge(newIndex, connection, length));
+				edgeHeap.push(new Edge(newIndex, connection, length));
 			}
 		}
+
+		smallestEdge = e->length;
+		delete(e);
 	} 
 
-	return graph->ReduceFootprint();
+	g->ReduceFootprint();
 }
 
-Mesh* NavigationMesh::convertToMesh(Graph *graph, float offset)
+Mesh* NavigationMesh::convertToMesh(Graph *g, float offset)
 {
 	//float time = glfwGetTime();
-	graph->scale(offset);
-	graph->recalculateNormalsFromFaces();
+	g->recalculateNormalsFromFaces();
+	g->scale(offset);
 	std::vector<Vertex> vertices;
-	vertices.reserve(graph->nodes.size());
+	vertices.reserve(g->nodes.size());
 
-	for (Node *node : graph->nodes) {
-		vertices.push_back(Vertex(node->vertex.Position, node->vertex.Normal, 1.0));
+	for (Node *node : g->nodes) {
+		vertices.push_back(Vertex(node->vertex.Position, node->vertex.Normal, true));
 	}
 
 	std::vector<unsigned int> indices;
-	facesToIndices(graph, indices);
-
+	facesToIndices(g, indices);
 	mesh = new Mesh(vertices, indices);
 	//std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
 	return mesh;
@@ -215,34 +188,23 @@ void NavigationMesh::PruneSubBedVertices(glm::mat4 model)
 	// TODO: pruning
 }
 
-void NavigationMesh::facesToIndices(Graph *graph, std::vector<unsigned int> &indices)
+void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices)
 {
-	//std::cout << "number of faces: " << graph->faceVector.size() << std::endl;
-	//std::cout << "number of vertices: " << graph->nodes.size() << std::endl;
+	for (Face *face : g->faceVector) {
+		if (face && g->nodes[face->index1] && 
+					g->nodes[face->index2] && 
+					g->nodes[face->index3]) {
 
-	//It's gotta be this, right?  This isn't creating all the faces?
-	int invalid = 0;
-	int size = graph->nodes.size();
-	for (int i = 0; i < size; i++) {
-		Node *node = graph->nodes[i];
-		for (int f : node->faces) {
-			if (f != -1) { //TODO: remove this once missing faces are filtered out. 
-				Face *face = graph->faceVector[f];
-				indices.push_back(face->index1);
-				indices.push_back(face->index2);
-				indices.push_back(face->index3);
-			} else {
-				invalid++;
-			}
+			indices.push_back(face->index1);
+			indices.push_back(face->index2);
+			indices.push_back(face->index3);
 		}
 	}
-
-	//std::cout << "Corrupted face indices: " << invalid << std::endl;
 }
 
-bool NavigationMesh::edgeValid(Edge edge, Graph *graph)
+bool NavigationMesh::edgeValid(Edge *edge, Graph *g)
 {
-	return graph->nodes[edge.indexA] && graph->nodes[edge.indexB];
+	return g->nodes[edge->indexA] && g->nodes[edge->indexB];
 }
 
 void NavigationMesh::heapTest()
@@ -353,10 +315,13 @@ EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
 		glm::vec3 a = face->vertex1;
 		glm::vec3 b = face->vertex2;
 		glm::vec3 c = face->vertex3;
-
-		edges.insert(new EdgeContainer(face->index1, face->index2, a, b));
-		edges.insert(new EdgeContainer(face->index2, face->index3, b, c));
-		edges.insert(new EdgeContainer(face->index3, face->index1, c, a));
+		
+		if (face->index1 != face->index2)
+			edges.insert(new EdgeContainer(face->index1, face->index2, a, b));
+		if (face->index2 != face->index3)
+			edges.insert(new EdgeContainer(face->index2, face->index3, b, c));
+		if (face->index3 != face->index1)
+			edges.insert(new EdgeContainer(face->index3, face->index1, c, a));
 	}
 
 	// Insert the unique edges to a heap
@@ -367,7 +332,9 @@ EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
 
 EdgeHeap::~EdgeHeap()
 {
-
+	for (Edge *e : heap) {
+		delete e;
+	}
 }
 
 bool EdgeHeap::empty()

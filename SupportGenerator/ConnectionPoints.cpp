@@ -1,13 +1,12 @@
 #include "ConnectionPoints.h"
 
 
-
 ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) : 
 	model(graph), overhang((M_PI / 2.0f) - maxAngle)
 {
 	//For poisson, must be ># of disconnected support areas
 	// For Mitchell's, seeds = max number of support points
-	const int seeds = 500;
+	const int seeds = 50;
 	const int maxCandidates = 10;
 	const float maxRadius = 10.0f;
 
@@ -20,12 +19,10 @@ ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) :
 
 	for (glm::vec3 p : points) {
 		vertices.emplace_back(p, glm::vec3(0,0,0), true);
-		//vertices.push_back(Vertex(p, glm::vec3(0, 0, 0), true));
 	}
 
 	setUpRendering();
 }
-
 
 ConnectionPoints::~ConnectionPoints()
 {
@@ -41,8 +38,6 @@ void ConnectionPoints::populateOctree()
 	}
 
 	for (Face *f : model->faceVector) {
-		// TODO: this appears to be wildly broken, as points are being added that are nowhere near
-		// it may be because the face normals are flipped?
 		if (glm::acos(glm::dot(f->normal, down)) < overhang)
 			octree.addFace(f);
 	}
@@ -110,8 +105,14 @@ void ConnectionPoints::Draw(DefaultShader shader)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
+void ConnectionPoints::clean()
+{
+	// TODO: delete extra data (octree)
+}
+
 Face * ConnectionPoints::randomFace()
 {
+	// TODO: pull from octree instead of faceVector.
 	return model->faceVector[intDistribution(generator)];
 }
 

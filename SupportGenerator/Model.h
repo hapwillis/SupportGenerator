@@ -58,6 +58,7 @@ public:
 	void Draw(DefaultShader shader);
 	float BoundingSphere(); 
 	float AABBsize(); //AABB = Axis-Aligned Bounding Box
+	void clean();
 
 private:
 	std::string directory;

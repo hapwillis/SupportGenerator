@@ -110,15 +110,6 @@ int main()
 	// -----------
 	while (!glfwWindowShouldClose(window))
 	{
-		// input
-		// -----
-		//std::cout << "Camera Pos: " << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << std::endl;
-		/*std::cout << "Target Pos: " << camera.Target.x << ", " << camera.Target.y << ", " << camera.Target.z << std::endl;
-		std::cout << "Pitch: " << camera.Pitch << " Yaw: " << camera.Yaw << std::endl;
-		std::cout << "Up vector: " << camera.Up.x << ", " << camera.Up.y << ", " << camera.Up.z << std::endl;
-		std::cout << "WorldUp vector: " << camera.WorldUp.x << ", " << camera.WorldUp.y << ", " << camera.WorldUp.z << std::endl;
-		std::cout << "Right vector: " << camera.Right.x << ", " << camera.Right.y << ", " << camera.Right.z << std::endl;*/
-		//std::cout << "Distance: " << camera.Distance << std::endl;
 		processInput(window);
 		
 		// render
@@ -198,8 +189,8 @@ void updateConnectionPoints()
 void updateNavMesh()
 {
 	double time = glfwGetTime();
-	navGraph = navMesh->getSimpleGraph((0.5f * SupportWidth) + SupportOffset);
-	navMesh->convertToMesh(navGraph, SupportOffset);
+	navGraph = navMesh->getSimpleGraph(1.0f); // (0.5f * SupportWidth) + SupportOffset
+	navMesh->mesh = navMesh->convertToMesh(navGraph, SupportOffset);
 	std::cout << "Time to create navigation mesh: " << glfwGetTime() - time << std::endl;
 }
 
@@ -208,8 +199,6 @@ void updateSupportPaths()
 	double time = glfwGetTime();
 	if (paths)
 		delete(paths);
-	// TODO: this won't be needed if decimateMesh is non-mutating.
-	navMesh = new NavigationMesh(*model);
 	paths = new SupportPaths(navMesh->graph, navGraph, connections->points, 0.5, SupportOffset);
 	paths->FindPaths();
 	paths->Geometry(6, 0.0f);
@@ -327,4 +316,5 @@ void drop_callback(GLFWwindow* window, int count, const char** paths)
 	model = new Model(p);
 	std::cout << "Time to load model: " << glfwGetTime() - time << std::endl;
 	camera.TargetModel(model);
+	processStep = 0;
 }

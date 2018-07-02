@@ -130,6 +130,8 @@ void Path::aStar(bool pathFound)
 
 void Path::Geometry()
 {
+	if (path.size() > 1)
+		return;
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 	int vOffset = 0;
@@ -138,7 +140,7 @@ void Path::Geometry()
 	indices.reserve(faces * path.size() * 6);
 	Cylinder c = Cylinder(faces, width);
 
-	for (int i = 1; i < path.size() - 1; i++) {
+	for (int i = 1; i < (path.size() - 1); i++) {
 		c.updateGeometry(path[i]->node->vertex.Position, path[i + 1]->node->vertex.Position);
 		glm::vec3 norm = glm::vec3(0.0f, 0.0f, 0.0f);
 		

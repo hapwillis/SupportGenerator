@@ -101,6 +101,11 @@ float Model::AABBsize()
 	return AABB;
 }
 
+void Model::clean()
+{
+	// TODO: delete all extra data
+}
+
 void Model::loadModel(std::string &path)
 {
 	// Loading time for AssImp: .067 seconds
@@ -260,6 +265,7 @@ int Model::checkMultimap(Vertex *v, std::unordered_multimap<float, int> &vertexM
 
 void Model::constructUniqueFaces(int size, std::vector<int> &translate)
 {
+	// TODO: this vector and loop can be moved into the following loop
 	std::vector<unsigned int> indices;
 	indices.reserve(size);
 	int offset = 0;
@@ -271,6 +277,7 @@ void Model::constructUniqueFaces(int size, std::vector<int> &translate)
 	}
 
 	std::unordered_multimap<int, int> faceMap;
+	int brokenfaces = 0;
 	for (int i = 0; i < indices.size(); i += 3) {
 		bool notFound = true;
 		int key = indices[i];
@@ -287,13 +294,20 @@ void Model::constructUniqueFaces(int size, std::vector<int> &translate)
 
 		//if not found, insert this face
 		if (notFound) {
-			faceMap.insert(std::pair<int, int>(key, i + 1));
+			// 
+			if (!(key == indices[i + 1] || key == indices[i + 2] || indices[i + 1] == indices[i + 2])) {
+				faceMap.insert(std::pair<int, int>(key, i + 1));
 
-			denseIndices.push_back(key);
-			denseIndices.push_back(indices[i + 1]);
-			denseIndices.push_back(indices[i + 2]);
+				denseIndices.push_back(key);
+				denseIndices.push_back(indices[i + 1]);
+				denseIndices.push_back(indices[i + 2]);
+			} else {
+				brokenfaces++;
+			}
 		}
 	}
+
+	std::cout << "Number of broken faces: " << brokenfaces << std::endl;
 }
 
 bool Model::pointsEqual(glm::vec3 p, glm::vec3 q)

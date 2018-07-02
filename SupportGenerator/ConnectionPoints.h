@@ -32,6 +32,7 @@ public:
 	void PoissonDiscDistribution();
 	void seedPoints(int seeds); //used for Poisson
 	void Draw(DefaultShader shader);
+	void clean();
 
 	void populateOctree();
 	Face* randomFace();

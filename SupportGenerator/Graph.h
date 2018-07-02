@@ -9,7 +9,7 @@ public:
 	float Range = 0.0;
 
 	Graph(Model &model);
-	Graph(std::vector<Node*> newNodes, std::vector<Face*> faces);
+	Graph(std::vector<Node*> &newNodes, std::vector<Face*> &faces);
 	~Graph();
 
 	Octree* getOctree();
@@ -17,7 +17,7 @@ public:
 	void scale(float displacement);
 	void recalculateNormalsFromFaces();
 	int CombineNodes(int n1, int n2);
-	Graph* ReduceFootprint();
+	void ReduceFootprint();
 
 	bool verifyFacesFromConnections(int node); // Test function.
 
@@ -30,6 +30,15 @@ private:
 	void CombineConnections(int n1, int n2, Node *node);
 	void CombineFaces(int n1, int n2, Node *node);
 
-	void cleanConnections(std::vector<Node*> &nodeList, std::vector<int> &translate);
-	std::vector<Face*> cleanFaces(std::vector<Node*> &nodeList, std::vector<int> &translate);
+	void cleanConnections(std::vector<int> &translate);
+	void cleanFaces(std::vector<int> &translate);
+
+	bool test();
+	bool testCleanFaces();
+	bool testCleanConnections();
+	bool testPopulateConnections();
+	bool testCombineNodes();
+	bool testReduceFootprint();
+	bool validateNodeCombination(Node *n1, Node *n2, Node *combined);
+	bool validateNode(Node *node);
 };

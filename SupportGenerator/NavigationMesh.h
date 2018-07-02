@@ -67,15 +67,15 @@ public:
 	// TODO: return smart pointers for mesh and graph
 	// suggested value of minDist = 0.5 * (support width) + offset
 	Graph* getSimpleGraph(float minLength);
-	Mesh* convertToMesh(Graph *graph, float offset);
+	Mesh* convertToMesh(Graph *g, float offset);
 	void PruneSubBedVertices(glm::mat4 model); 
 	void Draw(DefaultShader shader);
 
 private:
 	void initializeHeap(std::priority_queue<Edge> &edgeHeap);
-	Graph* decimateMesh(float minLength);
-	void facesToIndices(Graph *graph, std::vector<unsigned int> &indices);
-	bool edgeValid(Edge edge, Graph *graph);
+	void decimateMesh(Graph *g, float minLength);
+	void facesToIndices(Graph *g, std::vector<unsigned int> &indices);
+	bool edgeValid(Edge *edge, Graph *g);
 	
 	void heapTest();
 };
