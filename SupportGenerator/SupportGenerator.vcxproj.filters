@@ -15,71 +15,86 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="glad.c">
+    <ClCompile Include="src\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\ConnectionPoints.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Model.cpp">
+    <ClCompile Include="src\DefaultShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Octree.cpp">
+    <ClCompile Include="src\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Camera.cpp">
+    <ClCompile Include="src\Graph.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DefaultShader.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NavigationMesh.cpp">
+    <ClCompile Include="src\Model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SupportPaths.cpp">
+    <ClCompile Include="src\NavigationMesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Graph.cpp">
+    <ClCompile Include="src\Octree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ConnectionPoints.cpp">
+    <ClCompile Include="src\SupportPaths.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Model.h">
+    <ClInclude Include="headers\Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Octree.h">
+    <ClInclude Include="headers\ConnectionPoints.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Camera.h">
+    <ClInclude Include="headers\DefaultShader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DefaultShader.h">
+    <ClInclude Include="headers\Graph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="NavigationMesh.h">
+    <ClInclude Include="headers\Model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SupportPaths.h">
+    <ClInclude Include="headers\NavigationMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Graph.h">
+    <ClInclude Include="headers\nuklear.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ConnectionPoints.h">
+    <ClInclude Include="headers\Octree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\SupportPaths.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="default.vs">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="default.fs">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="ClassDiagram.cd" />
+    <None Include="resources\3DBenchy.stl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Gyro_the_Dodo_by_Virtox_-_CC-BY-ND-NC_-_Ultimaker_Special.stl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\gyro-the-dodo-ultimaker-special-attribution.pdf">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\voronoi-vase-v1.stl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\default.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\default.vs">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt">

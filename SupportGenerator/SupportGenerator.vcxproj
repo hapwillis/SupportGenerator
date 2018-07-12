@@ -19,31 +19,36 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="ConnectionPoints.cpp" />
-    <ClCompile Include="DefaultShader.cpp" />
-    <ClCompile Include="glad.c" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="Model.cpp" />
-    <ClCompile Include="NavigationMesh.cpp" />
-    <ClCompile Include="Octree.cpp" />
-    <ClCompile Include="Graph.cpp" />
-    <ClCompile Include="SupportPaths.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\ConnectionPoints.cpp" />
+    <ClCompile Include="src\DefaultShader.cpp" />
+    <ClCompile Include="src\glad.c" />
+    <ClCompile Include="src\Graph.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\NavigationMesh.cpp" />
+    <ClCompile Include="src\Octree.cpp" />
+    <ClCompile Include="src\SupportPaths.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="ConnectionPoints.h" />
-    <ClInclude Include="DefaultShader.h" />
-    <ClInclude Include="Graph.h" />
-    <ClInclude Include="Model.h" />
-    <ClInclude Include="NavigationMesh.h" />
-    <ClInclude Include="Octree.h" />
-    <ClInclude Include="SupportPaths.h" />
+    <ClInclude Include="headers\Camera.h" />
+    <ClInclude Include="headers\ConnectionPoints.h" />
+    <ClInclude Include="headers\DefaultShader.h" />
+    <ClInclude Include="headers\Graph.h" />
+    <ClInclude Include="headers\Model.h" />
+    <ClInclude Include="headers\NavigationMesh.h" />
+    <ClInclude Include="headers\nuklear.h" />
+    <ClInclude Include="headers\Octree.h" />
+    <ClInclude Include="headers\SupportPaths.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ClassDiagram.cd" />
-    <None Include="default.fs" />
-    <None Include="default.vs" />
+    <None Include="resources\3DBenchy.stl" />
+    <None Include="resources\default.fs" />
+    <None Include="resources\default.vs" />
+    <None Include="resources\gyro-the-dodo-ultimaker-special-attribution.pdf" />
+    <None Include="resources\Gyro_the_Dodo_by_Virtox_-_CC-BY-ND-NC_-_Ultimaker_Special.stl" />
+    <None Include="resources\voronoi-vase-v1.stl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />
