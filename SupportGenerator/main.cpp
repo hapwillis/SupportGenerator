@@ -1,6 +1,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+
+
 //#define GLM_ENABLE_EXPERIMENTAL
 //#include <glm/gtx/string_cast.hpp>
 
@@ -13,6 +15,7 @@
 #include <SupportPaths.h>
 
 #include <iostream>
+#include <thread>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void drop_callback(GLFWwindow* window, int count, const char** paths);
@@ -26,6 +29,7 @@ const unsigned int SCR_HEIGHT = 600;
 const float FOV = glm::radians(45.0f);
 const float SupportOffset = 2.0f;
 const float SupportWidth = 5.0f;
+const float maxOverhang = 0.785398f;
 
 // camera
 int scrWidth = SCR_WIDTH;
@@ -34,6 +38,7 @@ Camera camera(FOV, scrWidth, scrHeight, glm::vec3(0.0f, 0.0f, 3.0f));
 
 // context:
 int processStep = 0;
+std::thread processThread;
 bool selectSupportFlag = false;
 Model *model = {0};
 NavigationMesh *navMesh = { 0 };
@@ -138,6 +143,7 @@ int main()
 
 		shader.setVec3("camLightDir", camera.Direction());
 		shader.setFloat("camLightInten", 0.8f);
+		shader.setVec4("color", glm::vec4(0.565f, 0.565f, 0.565f, 1.0f));
 
 		if (model)
 			model->Draw(shader);
@@ -172,6 +178,7 @@ int main()
 	return 0;
 }
 
+// Time to run when called: 795 milliseconds
 void updateConnectionPoints()
 {
 	double time = glfwGetTime();
@@ -182,10 +189,11 @@ void updateConnectionPoints()
 
 	if (connections)
 		delete(connections);
-	connections = new ConnectionPoints(navMesh->graph, 0.785398f);
+	connections = new ConnectionPoints(navMesh->graph, maxOverhang);
 	std::cout << "Time to create connections: " << glfwGetTime() - time << std::endl;
 }
 
+// Time to run when called: 2709 milliseconds
 void updateNavMesh()
 {
 	double time = glfwGetTime();
@@ -199,7 +207,7 @@ void updateSupportPaths()
 	double time = glfwGetTime();
 	if (paths)
 		delete(paths);
-	paths = new SupportPaths(navMesh->graph, navGraph, connections->points, 0.5, SupportOffset);
+	paths = new SupportPaths(navMesh->graph, navGraph, connections->points, maxOverhang, SupportOffset);
 	paths->FindPaths();
 	paths->Geometry(6, 0.0f);
 	std::cout << "Time to pathfind supports: " << glfwGetTime() - time << std::endl;
@@ -221,16 +229,26 @@ void exportSupportedModel()
 
 void processIncrement()
 {
-	switch (processStep) {
-	case 0: updateConnectionPoints();
+	// TODO: skip this if no model is loaded
+	// TODO: thread these steps
+	//if (processThread.joinable())
+		//processThread.join();
+	switch (processStep) { 
+	case 0: //processThread = std::thread();
+		updateConnectionPoints(); // 903 milliseconds spent calling
 		break;
-	case 1: updateNavMesh();
+	case 1: //processThread = std::thread();
+		updateNavMesh(); // 2748 milliseconds spent calling
 		break;
-	case 2: updateSupportPaths();
+	case 2: //processThread = std::thread();
+		updateSupportPaths(); 
 		break;
-	case 3: updateSupportGeometry();
+	case 3: //processThread = std::thread();
+		updateSupportGeometry();
 		break;
-	case 4: exportSupportedModel();
+	case 4: //processThread = std::thread();
+		exportSupportedModel();
+		break;
 	}
 	
 	if (processStep > 3) {

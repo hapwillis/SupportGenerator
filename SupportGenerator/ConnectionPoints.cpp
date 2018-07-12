@@ -1,24 +1,38 @@
 #include "ConnectionPoints.h"
 
 
+ConnectionPoints::ConnectionPoints() 
+{
+
+}
+
 ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) : 
 	model(graph), overhang((M_PI / 2.0f) - maxAngle)
 {
 	//For poisson, must be ># of disconnected support areas
 	// For Mitchell's, seeds = max number of support points
-	const int seeds = 50;
-	const int maxCandidates = 10;
+	const int seeds = 200;
+	const int maxCandidates = 50;
 	const float maxRadius = 10.0f;
 
-	intDistribution = std::uniform_int_distribution<int>(0, graph->faceVector.size() - 1);
+	populateOctree();
+	intDistribution = std::uniform_int_distribution<int>(0, faces.size() - 1);
 	contDistribution = std::uniform_real_distribution<double>(0.0f, 1.0f);
 	points.reserve(seeds);
 
-	populateOctree();
 	MitchellsBestCandidates(seeds, maxCandidates);
 
-	for (glm::vec3 p : points) {
-		vertices.emplace_back(p, glm::vec3(0,0,0), true);
+	struct {
+		bool operator()(std::tuple<glm::vec3, Face*> a, std::tuple<glm::vec3, Face*> b) const
+		{
+			return std::get<0>(a).z <std::get<0>(b).z;
+		}
+	} compPoints;
+
+	std::sort(points.begin(), points.end(), compPoints);
+
+	for (std::tuple<glm::vec3, Face*> p : points) {
+		vertices.emplace_back(std::get<0>(p), glm::vec3(0,0,0), true);
 	}
 
 	setUpRendering();
@@ -26,20 +40,22 @@ ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) :
 
 ConnectionPoints::~ConnectionPoints()
 {
+	for (Face *f : faces) {
+		delete (f);
+	}
+
 }
 
 void ConnectionPoints::populateOctree()
 {
-	glm::vec3 down(-1.0f, 0.0f, 0.0f);
-
-	octree.vertices.reserve(model->nodes.size());
-	for (Node *n : model->nodes) {
-		octree.vertices.push_back(&n->vertex);
-	}
+	glm::vec3 down(0.0f, 0.0f, -1.0f);
 
 	for (Face *f : model->faceVector) {
-		if (glm::acos(glm::dot(f->normal, down)) < overhang)
-			octree.addFace(f);
+		float angle = glm::acos(glm::dot(f->normal, down));
+		if (angle < overhang && angle > 0.001f) {
+			faces.push_back(new Face(f->index1, f->index2, f->index3, model->nodes));
+			octree.addFace(faces.back());
+		}
 	}
 }
 
@@ -75,24 +91,33 @@ void ConnectionPoints::MitchellsBestCandidates(int seeds, int maxCandidates)
 {
 	glm::vec3 bestCandidate;
 	float bestDistance;
-	octree.addPoint(randomPoint());
+	Face* bestFace;
+	Face* face = randomFace();
+	octree.addPoint(randomPoint(face)); 
 
 	for (int seed = 0; seed < seeds; seed++) {
-		bestCandidate = randomPoint();
+		face = randomFace();
+		bestFace = face;
+		bestCandidate = randomPoint(face);
 		bestDistance = prominence(bestCandidate);
 
 		for (int c = 1; c < maxCandidates; c++) {
-			glm::vec3 candidate = randomPoint();
+			face = randomFace();
+			glm::vec3 candidate = randomPoint(face);
 			float distance = prominence(candidate);
 
-			if (bestDistance < minDist || distance < bestDistance) {
+			if (distance > bestDistance) {
+				bestFace = face;
 				bestCandidate = candidate;
 				bestDistance = distance;
 			}
 		}
 
-		if (bestDistance > minDist)
-			points.push_back(bestCandidate);
+		if (bestDistance > minDist) {
+			auto pTuple = std::make_tuple(bestCandidate, bestFace);
+			points.push_back(pTuple);
+			octree.addPoint(bestCandidate);
+		}
 	}
 }
 
@@ -100,25 +125,33 @@ void ConnectionPoints::Draw(DefaultShader shader)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_POINTS);
 	glBindVertexArray(VAO);
-	glDrawArrays(GL_POINTS, 0, 3 * (vertices.size() - 1));
+	shader.setVec4("color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+	glDrawArrays(GL_POINTS, 0, vertices.size());
 	glBindVertexArray(0);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
-void ConnectionPoints::clean()
+bool ConnectionPoints::createConnection(glm::vec3 rayOrigin, glm::vec3 rayDirection)
 {
-	// TODO: delete extra data (octree)
+	return false;
+}
+
+bool ConnectionPoints::deleteConnection(glm::vec3 rayOrigin, glm::vec3 rayDirection)
+{
+	return false;
+}
+
+void ConnectionPoints::undoConnection()
+{
 }
 
 Face * ConnectionPoints::randomFace()
 {
-	// TODO: pull from octree instead of faceVector.
-	return model->faceVector[intDistribution(generator)];
+	return faces[intDistribution(generator)];
 }
 
-glm::vec3 ConnectionPoints::randomPoint()
+glm::vec3 ConnectionPoints::randomPoint(Face* face)
 {
-	Face *face = randomFace();
 	float r1 = contDistribution(generator);
 	float r2 = contDistribution(generator);
 
@@ -130,7 +163,8 @@ glm::vec3 ConnectionPoints::randomPoint()
 
 float ConnectionPoints::prominence(glm::vec3 point)
 {
-	return glm::distance(octree.getNearestPoint(point), point);
+	glm::vec3 neighbor = octree.getNearestPoint(point);
+	return glm::distance(neighbor, point);
 }
 
 glm::vec3 ConnectionPoints::lowestVertex(Face * face)

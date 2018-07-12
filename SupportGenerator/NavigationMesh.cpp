@@ -132,17 +132,17 @@ Graph * NavigationMesh::getSimpleGraph(float minLength)
 
 void NavigationMesh::decimateMesh(Graph *g, float minLength)
 {
-	EdgeHeap edgeHeap(g->faceVector);
+	EdgeHeap edgeHeap(g->faceVector); // 184 milliseconds
 	float smallestEdge = 0.0f;
 	while (!edgeHeap.empty() && smallestEdge < minLength) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge *e = edgeHeap.pop();
-		while (!edgeValid(e, g) && !edgeHeap.empty()) {
+		while (!edgeValid(e, g) && !edgeHeap.empty()) { // 736 milliseconds
 			delete(e);
 			e = edgeHeap.pop();
 		}
 
-		int newIndex = g->CombineNodes(e->indexA, e->indexB);
+		int newIndex = g->CombineNodes(e->indexA, e->indexB); // 847 milliseconds
 		glm::vec3 a = g->nodes[newIndex]->vertex.Position;
 
 		//	add all the new edges to the minheap
@@ -293,6 +293,7 @@ void NavigationMesh::Draw(DefaultShader shader)
 {
 	if (mesh) {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		shader.setVec4("color", glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
 		mesh->Draw(shader);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
@@ -342,25 +343,26 @@ bool EdgeHeap::empty()
 	return heap.size() == 1;
 }
 
-Edge * EdgeHeap::pop()
+Edge * EdgeHeap::pop() // 733 milliseconds
 {
 	// This method is O(2logn).  
 	// An O(logn) method is to promote children until you reach a leaf,
 	// then filling that leaf with another leaf and bubbling it up.
 	Edge *topEdge = heap[1];
 	Edge *bubbleEdge = heap.back();
+	float bubbleLength = bubbleEdge->length;
 	heap[1] = bubbleEdge;
 	heap.pop_back();
 
 	int index = 1;
 	int leftChild = 2;
-	
-	while (leftChild < heap.size()) {
-		float minValue = bubbleEdge->length;
-		int minIndex = index;
+	int minIndex = index;
 
-		float childValue = heap[leftChild]->length;
-		if (childValue < minValue) {
+	while (leftChild < heap.size()) {
+		float minValue = bubbleLength;
+
+		float childValue = heap[leftChild]->length; // 164 milliseconds
+		if (childValue < minValue) { // 410 milliseconds
 			minValue = childValue;
 			minIndex = leftChild;
 		}
@@ -369,7 +371,6 @@ Edge * EdgeHeap::pop()
 		if (rightChild < heap.size()) {
 			childValue = heap[rightChild]->length;
 			if (childValue < minValue) {
-				minValue = childValue;
 				minIndex = rightChild;
 			}
 		}
@@ -378,10 +379,11 @@ Edge * EdgeHeap::pop()
 			break;
 
 		heap[index] = heap[minIndex];
-		heap[minIndex] = bubbleEdge;
 		index = minIndex;
 		leftChild = index << 1;
 	}
+
+	heap[minIndex] = bubbleEdge;
 
 	return topEdge;
 }
@@ -395,6 +397,7 @@ void EdgeHeap::push(Edge * e)
 	if (parent > 0) {
 		// Can this be threaded?  It's overkill, but if it lets
 		// the caller start faster then it might be worth it.
+		// You'd just join the thread at the top of pop().
 		Edge *swapHolder = heap[parent];
 		float insertValue = e->length;
 		float parentValue = heap[parent]->length;

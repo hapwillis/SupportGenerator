@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Graph.h"
-
+  
 #include <random>
+
 
 struct Edge {
 	unsigned int indexA;
@@ -61,6 +62,7 @@ public:
 	Graph *graph = NULL; 
 	Mesh *mesh = NULL; 
 
+
 	NavigationMesh(Model &newModel); 
 	~NavigationMesh();
 
@@ -72,7 +74,6 @@ public:
 	void Draw(DefaultShader shader);
 
 private:
-	void initializeHeap(std::priority_queue<Edge> &edgeHeap);
 	void decimateMesh(Graph *g, float minLength);
 	void facesToIndices(Graph *g, std::vector<unsigned int> &indices);
 	bool edgeValid(Edge *edge, Graph *g);

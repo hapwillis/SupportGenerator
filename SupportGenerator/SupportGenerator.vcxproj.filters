@@ -81,4 +81,23 @@
     </None>
     <None Include="ClassDiagram.cd" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt">
+      <Filter>Source Files</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\loadedModel.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\navmesh.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\paths.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="resources\supportPoints.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

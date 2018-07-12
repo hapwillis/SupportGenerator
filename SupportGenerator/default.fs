@@ -11,14 +11,13 @@ uniform float lightOneInten;
 
 uniform vec3 camLightDir;
 uniform float camLightInten;
+uniform vec4 color;
 
 void main()
 {
     if (Wireframe > 0.0) {
-        FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        FragColor = color;
     } else {
-        vec4 color = vec4(0.565f, 0.565f, 0.565f, 1.0f);
-
         float ambient = 0.0;
 
         vec3 normal = normalize(Normal);
@@ -27,6 +26,13 @@ void main()
         float diffuseOne = lightOneInten * max(dot(normal, lightOneD), 0.0);
         float diffuseTwo = camLightInten * max(dot(normal, camLightD), 0.0);
 
-        FragColor = (diffuseOne + diffuseTwo + ambient) * color;
+        vec4 tcolor = color;
+        float angle = acos(dot(normal, vec3(0.0, -1.0, 0.0)));
+        if (angle < 0.785398 && angle > 0.001) {
+            float redness = color.x + ((1.0 - color.x) * (0.785398 - angle) / 0.785398);
+            tcolor = vec4(redness, color.y * angle, color.z * angle, 1.0);
+        }
+
+        FragColor = (diffuseOne + diffuseTwo + ambient) * tcolor;
     }
 } 

@@ -7,7 +7,7 @@ Graph::Graph(Model &model)
 	int index = 0;
 	nodes.reserve(model.denseVertices.size());
 	for (Vertex *vertex : model.denseVertices) {
-		nodes.push_back(new Node(index, *vertex));
+		nodes.push_back(new Node(index, vertex->Position, vertex->Normal, true));
 		index++;
 	}
 
@@ -31,7 +31,10 @@ Graph::Graph(Model &model)
 	recalculateNormalsFromFaces(); //WARNING: recalculating normals breaks manifold.
 	//std::cout << "Time to recalculate normals: " << glfwGetTime() - time << std::endl;
 
-	// TODO: start thread to create octree
+	if (updateThread.joinable())
+		updateThread.join();
+	octree = new Octree();
+	updateThread = std::thread(&Octree::update, octree, &nodes, &faceVector, getRange());
 }
 
 Graph::Graph(std::vector<Node*> &newNodes, std::vector<Face*> &faces)
@@ -67,13 +70,15 @@ Graph::Graph(std::vector<Node*> &newNodes, std::vector<Face*> &faces)
 	populateConnections();
 	//ReduceFootprint();
 	recalculateNormalsFromFaces(); 
-
-	// TODO: start thread to create octree
 }
 
 Graph::~Graph()
 {
+	if (updateThread.joinable())
+		updateThread.join();
+
 	delete(octree);
+
 	for (Node *n : nodes)
 		delete n;
 	for (Face *f : faceVector)
@@ -82,8 +87,8 @@ Graph::~Graph()
 
 Octree* Graph::getOctree()
 {
-	if (!octree)
-		octree = new Octree(&nodes, &faceVector, getRange());
+	if (updateThread.joinable())
+		updateThread.join();
 
 	return octree;
 }
@@ -134,8 +139,34 @@ void Graph::populateConnections()
 	}
 }
 
+void Graph::relocateNodeFromFaceIntercepts(Node* node, Node* nodeFaces, float offset)
+{
+	// TODO: blows up for some vertices.
+	glm::vec3 faceOrigin = nodeFaces->vertex.Position;
+	glm::vec3 pos = node->vertex.Position;
+	glm::vec3 norm = node->vertex.Normal;
+	float maxDist = 0.0f;
+
+	for (int face : nodeFaces->faces) {
+		if (faceVector[face]) {
+			glm::vec3 faceNorm = faceVector[face]->normal;
+			glm::vec3 offsetFaceOrigin = faceOrigin + offset * faceNorm;
+			float distance = faceExclusionDist(pos, norm, offsetFaceOrigin, faceNorm);
+
+			if (distance > maxDist)
+				maxDist = distance;
+		}
+	}
+
+	node->vertex.Position += norm * maxDist;
+}
+
 void Graph::recalculateNormalsFromFaces()
 {
+	for (Face *face : faceVector) {
+		face->update(nodes);
+	}
+
 	for (int n = 0; n < nodes.size(); n++) {
 		std::vector<int> tvect;
 		for (int face : nodes[n]->faces) {
@@ -143,6 +174,7 @@ void Graph::recalculateNormalsFromFaces()
 		}
 
 		if (tvect.size() > 0 && faceVector[tvect[0]]) {
+
 			glm::vec3 tNormal = faceVector[tvect[0]]->normal;
 			for (int i = 1; i < tvect.size(); i++) {
 				tNormal = tNormal + glm::normalize(faceVector[tvect[i]]->normal);
@@ -154,31 +186,48 @@ void Graph::recalculateNormalsFromFaces()
 	}
 }
 
-void Graph::scale(float displacement)
+void Graph::scale(float offset)
 {
+	recalculateNormalsFromFaces();
+	// TODO: scale from offset to the original model... faster than fancy node relocations
 	for (Node *n : nodes) {
-		// TODO: scale()
-		//call relocateVert() with offset, newPos, newNormal, and list of faces
-
-		// float dist = 0;
-		//for each associated face
-		// find intersect of face plane and vertex normal
-		// dist = std::max(dist, intersection);
-		glm::vec3 pos = n->vertex.Position;
-		glm::vec3 norm = n->vertex.Normal;
-		n->vertex.Position = pos + (norm * displacement);
+		n->vertex.Position += offset * n->vertex.Normal;
+		//relocateNodeFromFaceIntercepts(n, n, offset);
 	}
+
+	for (Face* f : faceVector) {
+		f->update(nodes);
+	}
+
+	// TODO: get the scale earlier, or adjust octree so we don't have to do this.
+	if (updateThread.joinable())
+		updateThread.join();
+	delete octree;
+	octree = new Octree();
+	octree->update(&nodes, &faceVector, getRange());
+	//updateThread = std::thread(&Octree::update, octree, &nodes, &faceVector, getRange());
 }
 
 int Graph::CombineNodes(int n1, int n2)
 {
-	Node *node = nodeFromAverage(nodes[n1], nodes[n2]);
-	CombineConnections(n1, n2, node);
-	CombineFaces(n1, n2, node);
+	Node *node1 = nodes[n1];
+	Node *node2 = nodes[n2];
+	Node *node = nodeFromAverage(node1, node2);
+	//relocateNodeFromFaceIntercepts(node, node1, 0.0f);
+	//relocateNodeFromFaceIntercepts(node, node2, 0.0f);
 
-	delete(nodes[n1]);
+	CombineConnections(n1, n2, node); // 344 milliseconds
+	CombineFaces(n1, n2, node); // 363 milliseconds
+
+	glm::vec3 tNormal(0.0f, 0.0f, 0.0f);
+	for (int f : node->faces) {
+		tNormal += faceVector[f]->normal;
+	}
+	node->vertex.Normal = glm::normalize(tNormal);
+
+	delete(node1);
 	nodes[n1] = NULL;
-	delete(nodes[n2]);
+	delete(node2);
 	nodes[n2] = NULL;
 	return node->ID;
 }
@@ -283,14 +332,14 @@ Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 	
 	float maxDist = 0.0f;
 	for (int face : n1->faces) {
-		float distance; // TODO: intersectRayPlane is failing.
-		glm::intersectRayPlane(pos, norm, n1->vertex.Position, faceVector[face]->normal, distance);
+		float distance = faceExclusionDist(pos, norm, n1->vertex.Position, faceVector[face]->normal);
+		//glm::intersectRayPlane(pos, norm, n1->vertex.Position, faceVector[face]->normal, distance);
 		if (distance > maxDist)
 			maxDist = distance;
 	}
 	for (int face : n2->faces) {
-		float distance; // TODO: intersectRayPlane is failing.
-		glm::intersectRayPlane(pos, norm, n2->vertex.Position, faceVector[face]->normal, distance);
+		float distance = faceExclusionDist(pos, norm, n1->vertex.Position, faceVector[face]->normal);
+		//glm::intersectRayPlane(pos, norm, n2->vertex.Position, faceVector[face]->normal, distance);
 		if (distance > maxDist)
 			maxDist = distance;
 	}
@@ -300,29 +349,52 @@ Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 	return node;
 }
 
+float Graph::faceExclusionDist(glm::vec3 pointPosition, glm::vec3 pointNormal, glm::vec3 faceVertex, glm::vec3 faceNormal)
+{
+	// NB: undefined behavior if pointNormal is not normalized.
+	float f = glm::dot(faceVertex - pointPosition, faceNormal);
+	if (f < 0.00000001f) // nonintersection or negative
+		return 0.0f;
+
+	float a = glm::dot(pointNormal, faceNormal);
+	if (a < 0.00000001f) // normal parallel to face
+		return 0.0f;
+
+	float distance = f / a; 
+
+	if (distance > 4.0f)
+		std::cout << "ffffff" << std::endl;
+
+	return distance;
+}
+
 void Graph::ReduceFootprint()
 {
-	std::vector<Node*> newNodes; // TODO: do this in place
 	std::vector<int> translate; // faster, but larger than a hashtable.
 	translate.reserve(nodes.size());
-	int index = 0;
 
+	int index = 0;
 	for (Node *n : nodes) {
-		if (n && (n->faces.size() > 0 || n->connections.size() > 0)) {
+		if (n) {
 			n->ID = index;
-			newNodes.push_back(n);
+			nodes[index] = n;
 			translate.push_back(index);
 			index++;
 		} else {
 			translate.push_back(-1);
 		}
 	}
-	nodes = newNodes;
+	nodes.resize(index);
 	nodes.shrink_to_fit();
 
 	cleanFaces(translate);
 	cleanConnections(translate);
 	faceVector.shrink_to_fit();
+
+	if (updateThread.joinable())
+		updateThread.join();
+	octree = new Octree();
+	updateThread = std::thread(&Octree::update, octree, &nodes, &faceVector, getRange());
 }
 
 void Graph::cleanConnections(std::vector<int> &translate)
@@ -360,10 +432,9 @@ void Graph::cleanFaces(std::vector<int> &translate)
 			f->index2 = translate[f->index2];
 			f->index3 = translate[f->index3];
 
-			if (!(f->index1 == f->index2 || 
-				f->index1 == f->index3 || 
-				f->index2 == f->index3
-				|| f->index1 < 0 || f->index2 < 0 || f->index3 < 0)) {
+			if (!(	f->index1 == f->index2 || 
+					f->index1 == f->index3 || 
+					f->index2 == f->index3 )) {
 
 				faceTran.push_back(index);
 				faceList.push_back(f);
@@ -371,8 +442,7 @@ void Graph::cleanFaces(std::vector<int> &translate)
 			} else {
 				faceTran.push_back(-1);
 			}
-		}
-		else {
+		} else {
 			faceTran.push_back(-1);
 		}
 	}
@@ -382,11 +452,9 @@ void Graph::cleanFaces(std::vector<int> &translate)
 		// Push the faces
 		std::unordered_set<int> newFaces;
 		for (int f : node->faces) {
-			if (f > 0) {
 				int tran = faceTran[f];
 				if (tran > -1)
 					newFaces.insert(tran);
-			}
 		}
 		node->faces.clear();
 
@@ -399,6 +467,24 @@ void Graph::cleanFaces(std::vector<int> &translate)
 bool Graph::test()
 {
 	// TODO: test function
+	testPopulateConnections();
+
+	for (Node *node : nodes) {
+		for (int c : node->connections) {
+			if (nodes[c]) {
+				int thisNodeID = node->ID;
+				bool found = false;
+				for (int n : nodes[c]->connections) {
+					if (n == thisNodeID)
+						found = true;
+				}
+				if (!found)
+					std::cout << "Connection is only one way!" << std::endl;
+			} else {
+				std::cout << "Connection to node which DNE!" << std::endl;
+			}
+		}
+	}
 	return false;
 }
 
@@ -422,22 +508,24 @@ bool Graph::testPopulateConnections()
 		int comb = node->ID;
 		std::unordered_set<int> faceConnections;
 		for (int faceIndex : node->faces) {
-			if (faceIndex < 0) {
+			if (faceIndex < 0) { //invalid face index/temp face
 				failedP++;
 				fail = true;
 				break;
 			}
 			else {
-				if (!faceVector[faceIndex]) {
+				if (!faceVector[faceIndex]) { //face does not exist
 					failedP++;
 					fail = true;
 					break;
 				}
+				// face is not attached to this node
 				if (!(faceVector[faceIndex]->index1 == comb || faceVector[faceIndex]->index2 == comb || faceVector[faceIndex]->index3 == comb)) {
 					failedP++;  
 					fail = true;
 					break;
 				}
+				// face is a line or point
 				if (faceVector[faceIndex]->index1 == faceVector[faceIndex]->index2 ||
 					faceVector[faceIndex]->index1 == faceVector[faceIndex]->index3 ||
 					faceVector[faceIndex]->index2 == faceVector[faceIndex]->index3) {
