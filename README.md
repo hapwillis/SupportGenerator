@@ -16,7 +16,7 @@ Pathfinding is done using A*, but Djikstra is more efficient for print speed.  T
 
 Pathfinding is assisted with an octree, which is created in a separate thread.  The octree holds all overhanging faces in the navigation mesh, represented by AABB.  This makes self-intersection tests much faster.
 
-
+The next important step is proper geometry creation.  I'm planning on using [CGAL](https://doc.cgal.org/latest/Polygon_mesh_processing/index.html#coref_ex_union_subsec) for this.  Pathfinding also doesn't test for self-intersection, and basic useability stuff is missing completely.  I'm also still thinking about how to do path relaxation- it's an NP-complete problem done properly.
 
 TODO list:
 - [x] File importing and processing
