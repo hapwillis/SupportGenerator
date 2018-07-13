@@ -23,23 +23,26 @@ void processInput(GLFWwindow *window);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
-// settings
+// Settings
+// TODO: collect these into a struct (ScreenProperties)
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 const float FOV = glm::radians(45.0f);
-const float SupportOffset = 2.0f;
-const float SupportWidth = 5.0f;
-const float maxOverhang = 0.785398f;
 
 // camera
+// TODO: move into Camera
 int scrWidth = SCR_WIDTH;
 int scrHeight = SCR_HEIGHT;
 Camera camera(FOV, scrWidth, scrHeight, glm::vec3(0.0f, 0.0f, 3.0f));
 
 // context:
+// TODO: collect these into a struct (ProcessSettings)
 int processStep = 0;
 std::thread processThread;
 bool selectSupportFlag = false;
+const float SupportOffset = 2.0f;
+const float SupportWidth = 5.0f;
+const float maxOverhang = 0.785398f;
 Model *model = {0};
 NavigationMesh *navMesh = { 0 };
 Graph *navGraph = { 0 };
@@ -178,6 +181,7 @@ int main()
 	return 0;
 }
 
+
 // Time to run when called: 795 milliseconds
 void updateConnectionPoints()
 {
@@ -193,6 +197,7 @@ void updateConnectionPoints()
 	std::cout << "Time to create connections: " << glfwGetTime() - time << std::endl;
 }
 
+
 // Time to run when called: 2709 milliseconds
 void updateNavMesh()
 {
@@ -201,6 +206,7 @@ void updateNavMesh()
 	navMesh->mesh = navMesh->convertToMesh(navGraph, SupportOffset);
 	std::cout << "Time to create navigation mesh: " << glfwGetTime() - time << std::endl;
 }
+
 
 void updateSupportPaths()
 {
@@ -213,12 +219,14 @@ void updateSupportPaths()
 	std::cout << "Time to pathfind supports: " << glfwGetTime() - time << std::endl;
 }
 
+
 void updateSupportGeometry()
 {
 	double time = glfwGetTime();
 	// TODO: updateSupportGeometry
 	std::cout << "Time to create support geometry: " << glfwGetTime() - time << std::endl;
 }
+
 
 void exportSupportedModel()
 {
@@ -227,6 +235,7 @@ void exportSupportedModel()
 	std::cout << "Time to export supported model: " << glfwGetTime() - time << std::endl;
 }
 
+// Coordinates and advances the support process when called
 void processIncrement()
 {
 	// TODO: skip this if no model is loaded
@@ -257,6 +266,7 @@ void processIncrement()
 		processStep++;
 	}
 }
+
 
 void selectSupport(double x, double y)
 {
@@ -289,6 +299,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
+
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	double xpos, ypos;
@@ -306,6 +317,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 			break;
 	}
 }
+
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {

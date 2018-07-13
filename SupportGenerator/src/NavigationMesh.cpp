@@ -50,7 +50,6 @@ EdgeSet::~EdgeSet()
 	}
 }
 
-// 
 void EdgeSet::insert(EdgeContainer *e1)
 {
 	bool notFound = true;
@@ -76,7 +75,8 @@ void EdgeSet::insert(EdgeContainer *e1)
 	}
 }
 
-// 
+// "Hash" function for EdgeContainers.
+// Avoid if possible- inefficient.
 size_t KeyFuncs::operator()(const EdgeContainer& e)const
 {
 	std::string s("");
@@ -92,7 +92,7 @@ size_t KeyFuncs::operator()(const EdgeContainer& e)const
 	return std::hash<std::string>()(s);
 }
 
-// 
+// Custom comparator for sets to prevent equivalent edges.
 bool KeyFuncs::operator()(const EdgeContainer& a, const EdgeContainer& b)const
 {
 	bool v1 = glm::all(glm::equal(a.negVert, b.negVert));
@@ -100,13 +100,13 @@ bool KeyFuncs::operator()(const EdgeContainer& a, const EdgeContainer& b)const
 	return v1 && v2;
 }
 
-// 
+// Custom comparator for std::priority_heap for EdgeContainers.
 bool operator<(const EdgeContainer& a, const EdgeContainer& b)
 {
 	return a.len > b.len;
 }
 
-// 
+// Custom comparator for std::priority_heap for Edges.
 bool operator<(const Edge& a, const Edge& b)
 {
 	return a.length > b.length;
@@ -128,7 +128,7 @@ NavigationMesh::~NavigationMesh()
 	
 }
 
-// 
+// Returns a new simplified (decimated), scaled and cleaned Graph.
 Graph * NavigationMesh::getSimpleGraph(float minLength)
 {
 	//float time = glfwGetTime();
@@ -141,7 +141,7 @@ Graph * NavigationMesh::getSimpleGraph(float minLength)
 	return smallGraph;
 }
 
-// 
+// Simplifies a mesh by removing the smallest edge until all edges are longer than minLength.
 void NavigationMesh::decimateMesh(Graph *g, float minLength)
 {
 	EdgeHeap edgeHeap(g->faceVector); // 184 milliseconds
@@ -175,7 +175,7 @@ void NavigationMesh::decimateMesh(Graph *g, float minLength)
 	g->ReduceFootprint();
 }
 
-// 
+// Creates a renderable mesh from a Graph, and scales it by offset.
 Mesh* NavigationMesh::convertToMesh(Graph *g, float offset)
 {
 	//float time = glfwGetTime();
@@ -195,14 +195,14 @@ Mesh* NavigationMesh::convertToMesh(Graph *g, float offset)
 	return mesh;
 }
 
-// 
+// Removes Nodes which are below the print bed.
 void NavigationMesh::PruneSubBedVertices(glm::mat4 model)
 {
 
 	// TODO: pruning
 }
 
-// 
+// Adds indices to a given vector, generated from the faces of a Graph g.
 void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices)
 {
 	for (Face *face : g->faceVector) {
@@ -217,13 +217,15 @@ void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices
 	}
 }
 
-// 
+// Returns true if the nodes composing an edge exist.  
 bool NavigationMesh::edgeValid(Edge *edge, Graph *g)
 {
 	return g->nodes[edge->indexA] && g->nodes[edge->indexB];
 }
 
-// 
+// Compares a std::priority_queue to my implementation.  
+// Utility class to ensure they both still work while optimizing.
+// TODO: move this somewhere else (eg under a ctest)
 void NavigationMesh::heapTest()
 {
 	EdgeHeap customClass;
@@ -306,7 +308,7 @@ void NavigationMesh::heapTest()
 	}
 }
 
-// 
+// Draws the navigation surface in blue, as a wireframe.
 void NavigationMesh::Draw(DefaultShader shader)
 {
 	if (mesh) {
@@ -359,13 +361,13 @@ EdgeHeap::~EdgeHeap()
 	}
 }
 
-// 
+
 bool EdgeHeap::empty()
 {
 	return heap.size() == 1;
 }
 
-// 
+
 Edge * EdgeHeap::pop() // 733 milliseconds
 {
 	// This method is O(2logn).  
@@ -411,10 +413,12 @@ Edge * EdgeHeap::pop() // 733 milliseconds
 	return topEdge;
 }
 
-// 
+
 void EdgeHeap::push(Edge * e)
 {
-	int index = heap.size();
+	// TODO: investigate deleting invalid edges as they are discovered-
+  // that might be faster than calling pop each time.  It's tricky, though.
+  int index = heap.size();
 	heap.push_back(e);
 	int parent = index >> 1; // Divide by two
 
@@ -443,7 +447,7 @@ void EdgeHeap::push(Edge * e)
 	}
 }
 
-// 
+// Tests edgeHeap for functionality
 bool EdgeHeap::heapTest()
 {
 	std::default_random_engine gen;

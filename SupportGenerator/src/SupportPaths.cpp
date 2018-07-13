@@ -6,7 +6,7 @@ Cylinder::Cylinder(int numSides, float supportWidth) : faces(numSides), width(su
 
 }
 
-// 
+// Relocates the cylinder under consideration.
 void Cylinder::updateGeometry(glm::vec3 startP, glm::vec3 endP)
 {
 	start = startP;
@@ -22,7 +22,7 @@ void Cylinder::updateGeometry(glm::vec3 startP, glm::vec3 endP)
 	genIndices();
 }
 
-// 
+// Generates new vertices for a given cylinder position.
 void Cylinder::genVerts(glm::vec3 sinVec, glm::vec3 center)
 {
 	float frac = pi2 / faces;
@@ -35,7 +35,7 @@ void Cylinder::genVerts(glm::vec3 sinVec, glm::vec3 center)
 	}
 }
 
-// 
+// Generates indices from the current vertices.
 void Cylinder::genIndices()
 {
 	for (int a = 0; a < faces - 1; a++) {
@@ -79,7 +79,7 @@ Path::~Path()
 	delete(path[1]);
 }
 
-// 
+// Creates an internal PFNode from a Node object.
 void Path::addNode(Node *node)
 {
 	PFNode *pathNode = new PFNode(node);
@@ -89,7 +89,8 @@ void Path::addNode(Node *node)
 	pathNode->costToEnd = getCost(pathNode);
 }
 
-// 
+// Runs A* on this path.  
+// If pathFound is true, paths will jump directly to the bed.
 void Path::aStar(bool pathFound)
 {
 	glm::vec3 origin = path[1]->node->vertex.Position;
@@ -150,7 +151,7 @@ void Path::aStar(bool pathFound)
 	}
 }
 
-// 
+//  Generates Cylinders for each segment of the path and sets up rendering.
 void Path::Geometry()
 {
 	if (path.size() < 1)
@@ -210,9 +211,9 @@ void Path::Geometry()
 	glBindVertexArray(0);
 }
 
-// 
-void Path::Draw(DefaultShader shader)
-{
+// Draws the Cylinder geometry as well as a GL_POINT at each PFNode.  
+// Also animates the travel of the path.
+void Path::Draw(DefaultShader shader) {
 	if (pathGeometry) {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		shader.setVec4("color", glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
@@ -235,17 +236,20 @@ void Path::Draw(DefaultShader shader)
 	}
 }
 
-// 
-float Path::getCost(PFNode *node)
-{
+// Calculates cost for PFNode node. 
+//    Invalid nodes (eg unconnected) return -1
+//    Valid nodes return admissible (underestimating) distances to the bed.
+float Path::getCost(PFNode *node) {
 	if (node->node->connections.size() == 0) {
 		return -1;
 	}
 
+  // TODO: actually test distance to bed and nodes where position.z = 0.0f
+
 	return (transform*(glm::vec4(node->node->vertex.Position, 1.0f))).z;
 }
 
-// 
+// Resets this path object, then attempts to pathfind by allowing nodes to skip directly to the bed.
 void Path::restartAStar()
 {
 	closed.clear();
@@ -259,7 +263,7 @@ void Path::restartAStar()
 	aStar(true);
 }
 
-// 
+// Fills a path vector by following the parentage of a valid end PFNode.
 void Path::retracePath(PFNode* end)
 {
 	std::vector<PFNode*> backwards;
@@ -303,7 +307,12 @@ SupportPaths::~SupportPaths()
 
 }
 
-// 
+// Finds paths for the given connection points.
+// This handles global pathing logic:
+//    Which pathfinding algorithm to use
+//    Tracking failed paths
+//    Handling how paths interact
+//    Regrouping, descending and relaxing paths
 void SupportPaths::FindPaths()
 {
 	int failedPaths = 0;
@@ -331,13 +340,13 @@ void SupportPaths::FindPaths()
 	regroupPaths();
 }
 
-// 
+// Generates geometry for rendering.
 void SupportPaths::Geometry(int faces, float tipD)
 {
 	// TODO: Geometry()
 }
 
-// 
+
 void SupportPaths::Draw(DefaultShader shader)
 {
 	// TODO: completed paths should have their own geometry- render that 
@@ -347,13 +356,17 @@ void SupportPaths::Draw(DefaultShader shader)
 	}
 }
 
-// 
+// Deletes a path, given a world space vector from the camera.
 void SupportPaths::DeleteSupport()
 {
 	// TODO: DeleteSupport
 }
 
-// 
+// Creates the first three PFNodes of a path:
+//    1. Model connection point
+//    2. A point on the proper navigation surface face
+//    3. The closest Node on the navigation graph.
+// Only the third node actually has connections and is valid for pathfinding.
 Path* SupportPaths::findStartNode(glm::vec3 point)
 {
 	// TODO: can just take face from ConnectionPoints.pointFaces
@@ -391,19 +404,24 @@ Path* SupportPaths::findStartNode(glm::vec3 point)
 	return path;
 }
 
-// 
+// Splits paths into non-overlapping paths.
 void SupportPaths::regroupPaths()
 {
 	// TODO: regroupPaths
 }
 
-// 
+// Attempts to remove any path segments that move upwards.
+// Any unfixable paths are deleted.
 void SupportPaths::descendPaths() //rename to RegularizePaths
 {
 	// TODO: path relaxation of anything under maxAngle
 }
 
-// 
+// Relaxes paths, ie attempts to minimize the length of the path
+// without intersecting the navigation surface.
+//    This function is not intended to produce optimal solutions,
+//    ie perfectly minimizing both path length and distance from the print.
+//    It just makes reasonable approximations by straightening the line 
 void SupportPaths::Relax(float degree)
 {
 	// TODO: Path Relaxation
@@ -417,10 +435,10 @@ void SupportPaths::Relax(float degree)
 	//		else :
 	//			combine(heap.pop())
 
-
+  // Alternate: value shortcuts by their distance from the closest face (shortest first)
 }
 
-// 
+// Intersects a vector of geometry objects into a single mesh.
 void SupportPaths::intersectionGeometry()
 {
 	// TODO: intersectionGeometry
@@ -431,20 +449,3 @@ void SupportPaths::intersectionGeometry()
 	// move far vertices back to the point of collision, split the collided face
 }
 
-// 
-void SupportPaths::tip()
-{
-	// TODO: tip
-}
-
-// 
-void SupportPaths::base()
-{
-	// TODO: base
-}
-
-// 
-void SupportPaths::cylinderSegment()
-{
-	// TODO: cylinderSegment
-}

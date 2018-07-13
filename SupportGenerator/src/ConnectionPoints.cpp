@@ -48,7 +48,7 @@ ConnectionPoints::~ConnectionPoints()
 
 }
 
-// 
+// Adds only supportable faces to the faces vector and octree.
 void ConnectionPoints::populateOctree()
 {
 	glm::vec3 down(0.0f, 0.0f, -1.0f);
@@ -62,7 +62,7 @@ void ConnectionPoints::populateOctree()
 	}
 }
 
-// 
+// Uploads Vertex information to the GPU 
 void ConnectionPoints::setUpRendering()
 {
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -73,6 +73,7 @@ void ConnectionPoints::setUpRendering()
 
 	glBindVertexArray(VAO);
 	// load data into vertex buffers
+  // TODO: Vertex objects are overkill.
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	// A great thing about structs is that their memory layout is sequential for all its items.
 	// The effect is that we can simply pass a pointer to the struct and it translates perfectly to a glm::vec3/2 array which
@@ -91,7 +92,7 @@ void ConnectionPoints::setUpRendering()
 	glBindVertexArray(0);
 }
 
-// 
+// Places at most seeds points which are spread out evenly in 3d space.
 void ConnectionPoints::MitchellsBestCandidates(int seeds, int maxCandidates)
 {
 	glm::vec3 bestCandidate;
@@ -126,7 +127,7 @@ void ConnectionPoints::MitchellsBestCandidates(int seeds, int maxCandidates)
 	}
 }
 
-// 
+// Draws each of the connection points 
 void ConnectionPoints::Draw(DefaultShader shader)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_POINTS);
@@ -137,21 +138,24 @@ void ConnectionPoints::Draw(DefaultShader shader)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
-// 
+// Given a click vector from the camera, attempts to add a connection 
+// where the ray hits the model.
 bool ConnectionPoints::createConnection(glm::vec3 rayOrigin, glm::vec3 rayDirection)
 {
 	return false;
 }
 
-// 
+// Given a click vector from the camera, attempts to delete a point in the octree
+// This may require scissoring or something.
 bool ConnectionPoints::deleteConnection(glm::vec3 rayOrigin, glm::vec3 rayDirection)
 {
 	return false;
 }
 
-// 
+// Deletes the last connection from the octree
 void ConnectionPoints::undoConnection()
 {
+
 }
 
 // Chooses a random face
