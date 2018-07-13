@@ -1,8 +1,7 @@
 #include "Graph.h"
 
 
-Graph::Graph(Model &model)
-{
+Graph::Graph(Model &model) {
 	Range = model.AABBsize();
 	int index = 0;
 	nodes.reserve(model.denseVertices.size());
@@ -37,8 +36,8 @@ Graph::Graph(Model &model)
 	updateThread = std::thread(&Octree::update, octree, &nodes, &faceVector, getRange());
 }
 
-Graph::Graph(std::vector<Node*> &newNodes, std::vector<Face*> &faces)
-{
+
+Graph::Graph(std::vector<Node*> &newNodes, std::vector<Face*> &faces) {
 	nodes.reserve(newNodes.size());
 	faceVector.reserve(faces.size());
 	int index = 0;
@@ -72,8 +71,8 @@ Graph::Graph(std::vector<Node*> &newNodes, std::vector<Face*> &faces)
 	recalculateNormalsFromFaces(); 
 }
 
-Graph::~Graph()
-{
+
+Graph::~Graph() {
 	if (updateThread.joinable())
 		updateThread.join();
 
@@ -85,16 +84,18 @@ Graph::~Graph()
 		delete f;
 }
 
-Octree* Graph::getOctree()
-{
+// Getter function to ensure that the octree is initialized before it's accessed.
+// This wait time can be significant (<2 seconds) because it has to wait for the 
+// octree thread to be joined.
+Octree* Graph::getOctree() {
 	if (updateThread.joinable())
 		updateThread.join();
 
 	return octree;
 }
 
-float Graph::getRange() 
-{
+// Returns the size of a doubly-large axis aligned bounding cube
+float Graph::getRange() {
 	if (Range <= 0.0) {
 		float delta = 0.0;
 		for (Node *node : nodes) {
@@ -108,8 +109,8 @@ float Graph::getRange()
 	return Range;
 }
 
-void Graph::populateConnections()
-{
+// For each Node, populates connections from a vector of faces.
+void Graph::populateConnections() {
 	std::vector<ordered_set> connections;
 	connections.assign(nodes.size(), ordered_set());
 	for (int i = 0; i < faceVector.size(); i++) { 
@@ -139,8 +140,8 @@ void Graph::populateConnections()
 	}
 }
 
-void Graph::relocateNodeFromFaceIntercepts(Node* node, Node* nodeFaces, float offset)
-{
+// For each Node, recalculates the normal from the exclusion distance of each attached face.
+void Graph::relocateNodeFromFaceIntercepts(Node* node, Node* nodeFaces, float offset) {
 	// TODO: blows up for some vertices.
 	glm::vec3 faceOrigin = nodeFaces->vertex.Position;
 	glm::vec3 pos = node->vertex.Position;
@@ -161,8 +162,8 @@ void Graph::relocateNodeFromFaceIntercepts(Node* node, Node* nodeFaces, float of
 	node->vertex.Position += norm * maxDist;
 }
 
-void Graph::recalculateNormalsFromFaces()
-{
+// For each Node, recalculates the normal from the normals of each attached face.
+void Graph::recalculateNormalsFromFaces() {
 	for (Face *face : faceVector) {
 		face->update(nodes);
 	}
@@ -186,8 +187,10 @@ void Graph::recalculateNormalsFromFaces()
 	}
 }
 
-void Graph::scale(float offset)
-{
+// Scales by displacing vertices along their normal.  
+// NB that this is not a standard cartesian scaling.
+// Also rebuilds the octree.
+void Graph::scale(float offset) {
 	recalculateNormalsFromFaces();
 	// TODO: scale from offset to the original model... faster than fancy node relocations
 	for (Node *n : nodes) {
@@ -208,14 +211,15 @@ void Graph::scale(float offset)
 	//updateThread = std::thread(&Octree::update, octree, &nodes, &faceVector, getRange());
 }
 
-int Graph::CombineNodes(int n1, int n2)
-{
+// Removes an edge by combining two nodes.
+int Graph::CombineNodes(int n1, int n2) {
 	Node *node1 = nodes[n1];
 	Node *node2 = nodes[n2];
 	Node *node = nodeFromAverage(node1, node2);
 	//relocateNodeFromFaceIntercepts(node, node1, 0.0f);
 	//relocateNodeFromFaceIntercepts(node, node2, 0.0f);
 
+  // TODO: combineFaces is unnecessary
 	CombineConnections(n1, n2, node); // 344 milliseconds
 	CombineFaces(n1, n2, node); // 363 milliseconds
 
@@ -232,8 +236,10 @@ int Graph::CombineNodes(int n1, int n2)
 	return node->ID;
 }
 
-void Graph::CombineConnections(int n1, int n2, Node *node)
-{
+// Combines the connections of two nodes at indices n1 and n2 and adds them to node
+void Graph::CombineConnections(int n1, int n2, Node *node) {
+  // TODO: once Node.connections uses a set, this is redundant except for
+  // removing the two connections between n1 and n2.
 	ordered_set connections;
 	for (int i : nodes[n1]->connections) {
 		if (nodes[i] && i != n2) {
@@ -266,8 +272,9 @@ void Graph::CombineConnections(int n1, int n2, Node *node)
 	}
 }
 
-void Graph::CombineFaces(int n1, int n2, Node *node)
-{
+// Combines the faces of two nodes at indices n1 and n2, removes
+// duplicate and invalid faces, and adds those faces to node.
+void Graph::CombineFaces(int n1, int n2, Node *node) {
 	// delete faces that belong to both nodes
 	int index = node->ID;
 	for (int i : nodes[n1]->faces) {
@@ -314,8 +321,8 @@ void Graph::CombineFaces(int n1, int n2, Node *node)
 	}
 }
 
-Node* Graph::nodeFromAverage(Node* n1, Node* n2)
-{
+// Returns a new node that is offset to the average position of the given nodes.
+Node* Graph::nodeFromAverage(Node* n1, Node* n2) {
 	glm::vec3 norm = glm::normalize(n1->vertex.Normal + n2->vertex.Normal);
 	glm::vec3 pos = (n1->vertex.Position + n2->vertex.Position) * 0.5f;
 
@@ -324,8 +331,9 @@ Node* Graph::nodeFromAverage(Node* n1, Node* n2)
 	return node;
 }
 
-Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
-{
+// Returns a new node that is offset in a way that avoids intersection 
+// between any of the old and new faces.
+Node* Graph::nodeFromIntercept(Node* n1, Node* n2) {
 	// Create node based on intercepts with farthest face plane
 	glm::vec3 pos = (n1->vertex.Position + n2->vertex.Position) * 0.5f;
 	glm::vec3 norm = glm::normalize(n1->vertex.Normal + n2->vertex.Normal);
@@ -349,8 +357,9 @@ Node* Graph::nodeFromIntercept(Node* n1, Node* n2)
 	return node;
 }
 
-float Graph::faceExclusionDist(glm::vec3 pointPosition, glm::vec3 pointNormal, glm::vec3 faceVertex, glm::vec3 faceNormal)
-{
+// Returns an exclusion distance from pointPosition along pointNormal
+// This distance should prevent intersections with the face referenced by faceVertex and faceNormal
+float Graph::faceExclusionDist(glm::vec3 pointPosition, glm::vec3 pointNormal, glm::vec3 faceVertex, glm::vec3 faceNormal) {
 	// NB: undefined behavior if pointNormal is not normalized.
 	float f = glm::dot(faceVertex - pointPosition, faceNormal);
 	if (f < 0.00000001f) // nonintersection or negative
@@ -368,8 +377,9 @@ float Graph::faceExclusionDist(glm::vec3 pointPosition, glm::vec3 pointNormal, g
 	return distance;
 }
 
-void Graph::ReduceFootprint()
-{
+// Removes null nodes and faces, which are created by NavigationMesh.
+// TODO: move to NavigationMesh
+void Graph::ReduceFootprint() {
 	std::vector<int> translate; // faster, but larger than a hashtable.
 	translate.reserve(nodes.size());
 
@@ -397,8 +407,8 @@ void Graph::ReduceFootprint()
 	updateThread = std::thread(&Octree::update, octree, &nodes, &faceVector, getRange());
 }
 
-void Graph::cleanConnections(std::vector<int> &translate)
-{
+// Removes invalid connections, which can come from poorly build models
+void Graph::cleanConnections(std::vector<int> &translate) {
 	std::vector<ordered_set> connections;
 	connections.assign(nodes.size(), ordered_set());
 	for (int n = 0; n < nodes.size(); n++) {
@@ -419,8 +429,8 @@ void Graph::cleanConnections(std::vector<int> &translate)
 	}
 }
 
-void Graph::cleanFaces(std::vector<int> &translate)
-{
+// Removes invalid faces, which can come from poorly build models
+void Graph::cleanFaces(std::vector<int> &translate) {
 	std::vector<Face*> faceList;
 	std::vector<int> faceTran;
 	faceTran.reserve(faceList.size());
@@ -464,8 +474,8 @@ void Graph::cleanFaces(std::vector<int> &translate)
 	}
 }
 
-bool Graph::test()
-{
+// Calls a number of test functions on an uninitialized graph
+bool Graph::test() {
 	// TODO: test function
 	testPopulateConnections();
 
@@ -488,20 +498,8 @@ bool Graph::test()
 	return false;
 }
 
-bool Graph::testCleanFaces()
-{
-	// TODO: test cleanfaces
-	return false;
-}
-
-bool Graph::testCleanConnections()
-{
-	// TODO: test clean connections
-	return false;
-}
-
-bool Graph::testPopulateConnections()
-{
+// Returns false if populateConnections displays unexpected behavior
+bool Graph::testPopulateConnections() {
 	int failedP = 0;
 	for (Node *node : nodes) {
 		bool fail = false;
@@ -549,14 +547,8 @@ bool Graph::testPopulateConnections()
 	return failedP < 1;
 }
 
-bool Graph::testCombineNodes()
-{
-	// TODO: test combinenodes
-	return false;
-}
-
-bool Graph::validateNodeCombination(Node * n1, Node * n2, Node * combined)
-{
+// Tests if combined is a reasonable combination of n1 and n2
+bool Graph::validateNodeCombination(Node * n1, Node * n2, Node * combined) {
 	int comb = combined->ID;
 	if (n1->ID == comb || n1->ID == comb)
 		return false;
@@ -604,8 +596,8 @@ bool Graph::validateNodeCombination(Node * n1, Node * n2, Node * combined)
 	return true;
 }
 
-bool Graph::validateNode(Node * node)
-{
+// Checks if a node has connections for each face, is connected, etc.
+bool Graph::validateNode(Node * node) {
 	int comb = node->ID;
 	std::unordered_set<int> faceConnections;
 
@@ -635,14 +627,8 @@ bool Graph::validateNode(Node * node)
 	return true;
 }
 
-bool Graph::testReduceFootprint()
-{
-	// TODO: test reducefootprint
-	return false;
-}
-
-bool Graph::verifyFacesFromConnections(int node)
-{
+// Tests if a Graph's faces are represented in its connections
+bool Graph::verifyFacesFromConnections(int node) {
 	if (nodes[node]) {
 		std::unordered_set<int> connectionsFromFaces;
 		std::unordered_set<int> uniqueConnections;

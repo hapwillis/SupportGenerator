@@ -1,17 +1,18 @@
 #include "Model.h"
 
-Vertex::Vertex()
-{
+// Default uninitialized constructor
+Vertex::Vertex() {
 	Wireframe = 0.0;
 }
 
-Vertex::Vertex(glm::vec3 p, glm::vec3 n, float wireframe) : Position(p), Normal(n), Wireframe(wireframe)
-{
+
+Vertex::Vertex(glm::vec3 p, glm::vec3 n, float wireframe) : 
+  Position(p), Normal(n), Wireframe(wireframe) {
 
 }
 
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices)
-{
+
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices) {
 	this->vertices = vertices;
 	this->indices = indices;
 
@@ -19,16 +20,16 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices)
 	setupMesh();
 }
 
-void Mesh::Draw(DefaultShader shader)
-{
+// Makes the actual render call and handles VAO binding
+void Mesh::Draw(DefaultShader shader) {
 	// draw mesh
 	glBindVertexArray(VAO);
 	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }
 
-void Mesh::setupMesh()
-{
+// Uploads a mesh to the GPU (sets up a VBO etc.)
+void Mesh::setupMesh() {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
@@ -56,8 +57,8 @@ void Mesh::setupMesh()
 	glBindVertexArray(0);
 }
 
-Model::Model(std::string &path)
-{
+
+Model::Model(std::string &path) {
 	loadModel(path);
 
 	//float time = glfwGetTime();
@@ -66,19 +67,20 @@ Model::Model(std::string &path)
 	//std::cout << "Time to simplify Mesh: " << glfwGetTime() - time << std::endl;
 }
 
-Model::~Model()
-{
+
+Model::~Model() {
 
 }
 
-void Model::Draw(DefaultShader shader)
-{
+// Draws the render-optimized model data by calling each mesh's Draw()
+void Model::Draw(DefaultShader shader) {
 	for (unsigned int i = 0; i < meshes.size(); i++)
 		meshes[i].Draw(shader);
 }
 
-float Model::BoundingSphere()
-{
+// Returns the radius of tightly fitting bounding sphere
+// Useful for approximating collisions and center of mass.
+float Model::BoundingSphere() {
 	if (boundingRadius == 0.0) {
 		// TODO: use Gartner's algorithm: https://people.inf.ethz.ch/gaertner/subdir/texts/own_work/esa99_final.pdf
 		boundingRadius = AABBsize() / 2.0;
@@ -87,8 +89,10 @@ float Model::BoundingSphere()
 	return boundingRadius;
 }
 
-float Model::AABBsize()
-{
+// Returns the size of an Axis Aligned Bounding Box.
+// Specifically a double-oversized cube, which allows for trivial insertion
+// into an octree.
+float Model::AABBsize() {
 	if (AABB <= 0.0) {
 		float delta = 0.0;
 		for (Vertex *vertex : denseVertices) {
@@ -101,13 +105,15 @@ float Model::AABBsize()
 	return AABB;
 }
 
-void Model::clean()
-{
+// Deletes render-optimized data, which can be highly redundant.
+// Until this is called, the model object keeps both a compact and an
+// expanded copy.
+void Model::clean() {
 	// TODO: delete all extra data
 }
 
-void Model::loadModel(std::string &path)
-{
+// Creates and sets up an AssImp importer for a given file path to a model.
+void Model::loadModel(std::string &path) {
 	// Loading time for AssImp: .067 seconds
 	//float time = glfwGetTime();
 	Assimp::Importer import;
@@ -144,14 +150,14 @@ void Model::loadModel(std::string &path)
 	//std::cout << "Time to process: " << glfwGetTime() - time << std::endl;
 }
 
-bool Model::exportModel(std::string & path)
-{
+
+bool Model::exportModel(std::string & path) {
 	// TODO: exportModel()
 	return false;
 }
 
-void Model::processNode(aiNode *node, const aiScene *scene)
-{
+// Creates Mesh objects from an AssImp aiNode.
+void Model::processNode(aiNode *node, const aiScene *scene) {
 	// process all the node's meshes (if any)
 	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
@@ -165,13 +171,12 @@ void Model::processNode(aiNode *node, const aiScene *scene)
 	}
 }
 
-Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
-{
+// Converts an AssImp aiMesh to a vector of Vertex objects and indices.
+Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
 	std::vector<Vertex> vertices (mesh->mNumVertices);
 	std::vector<unsigned int> indices(mesh->mNumFaces * 3);
 
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-	{
+	for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
 		glm::vec3 vector;
 		Vertex vertex;
 
@@ -193,8 +198,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 
 	// process indices
 	int index = 0;
-	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
-	{
+	for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
 		aiFace face = mesh->mFaces[i];
 		index = i * 3;
 		indices[index] = face.mIndices[0];
@@ -206,9 +210,10 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene)
 	return Mesh(vertices, indices);
 }
 
-void Model::concatenateModelMeshes()
-{
+// Creates a set of unique vertices and a set of unique indices comprising all meshes.
+void Model::concatenateModelMeshes() {
 	int translateSize = 0, indicesSize = 0;
+  // this is over-optimizing
 	for (Mesh mesh : meshes) {
 		translateSize += mesh.vertices.size();
 		indicesSize += mesh.indices.size();
@@ -219,8 +224,10 @@ void Model::concatenateModelMeshes()
 	constructUniqueFaces(indicesSize, translate);
 }
 
-std::vector<int> Model::constructUniqueVertices(int size)
-{ //TODO: can be combined with processMesh.
+// Creates a reduced list of vertices and returns a vector mapping between the 
+// old and new lists.
+std::vector<int> Model::constructUniqueVertices(int size) { 
+  //TODO: can be combined with processMesh.
 	std::vector<int> translate;
 	translate.reserve(size);
 	std::unordered_multimap<float, int> vertexMap;
@@ -247,8 +254,10 @@ std::vector<int> Model::constructUniqueVertices(int size)
 	return translate;
 }
 
-int Model::checkMultimap(Vertex *v, std::unordered_multimap<float, int> &vertexMap)
-{
+// Checks a multimap for a particular vertex and returns the index of the first duplicate.
+// Returns -1 if no duplicate was found, then records the current index.
+// Helper function for constructUniqueVertices
+int Model::checkMultimap(Vertex *v, std::unordered_multimap<float, int> &vertexMap) {
 	auto range = vertexMap.equal_range(v->Position.x);
 
 	//check vertexMap for key, find any equal vertices
@@ -263,8 +272,10 @@ int Model::checkMultimap(Vertex *v, std::unordered_multimap<float, int> &vertexM
 	return -1;
 }
 
-void Model::constructUniqueFaces(int size, std::vector<int> &translate)
-{
+// Reduces this models' indices to unique groups of indices (representing triangles).
+// Assumes unique vertices have been removed but the indices haven't been updated,
+// so it expects to be passed a vector mapping old to new indices.
+void Model::constructUniqueFaces(int size, std::vector<int> &translate) {
 	// TODO: this vector and loop can be moved into the following loop
 	std::vector<unsigned int> indices;
 	indices.reserve(size);
@@ -310,8 +321,8 @@ void Model::constructUniqueFaces(int size, std::vector<int> &translate)
 	std::cout << "Number of broken faces: " << brokenfaces << std::endl;
 }
 
-bool Model::pointsEqual(glm::vec3 p, glm::vec3 q)
-{
+// Readability function for determining if two points are in the same spot.
+bool Model::pointsEqual(glm::vec3 p, glm::vec3 q) {
 	//return !glm::all(glm::equal(q, p));
 	bool a = false;
 	bool b = false;

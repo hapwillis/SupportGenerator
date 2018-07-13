@@ -6,6 +6,7 @@ ConnectionPoints::ConnectionPoints()
 
 }
 
+
 ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) : 
 	model(graph), overhang((M_PI / 2.0f) - maxAngle)
 {
@@ -38,6 +39,7 @@ ConnectionPoints::ConnectionPoints(Graph *graph, float maxAngle) :
 	setUpRendering();
 }
 
+
 ConnectionPoints::~ConnectionPoints()
 {
 	for (Face *f : faces) {
@@ -46,6 +48,7 @@ ConnectionPoints::~ConnectionPoints()
 
 }
 
+// 
 void ConnectionPoints::populateOctree()
 {
 	glm::vec3 down(0.0f, 0.0f, -1.0f);
@@ -59,6 +62,7 @@ void ConnectionPoints::populateOctree()
 	}
 }
 
+// 
 void ConnectionPoints::setUpRendering()
 {
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -87,6 +91,7 @@ void ConnectionPoints::setUpRendering()
 	glBindVertexArray(0);
 }
 
+// 
 void ConnectionPoints::MitchellsBestCandidates(int seeds, int maxCandidates)
 {
 	glm::vec3 bestCandidate;
@@ -121,6 +126,7 @@ void ConnectionPoints::MitchellsBestCandidates(int seeds, int maxCandidates)
 	}
 }
 
+// 
 void ConnectionPoints::Draw(DefaultShader shader)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_POINTS);
@@ -131,25 +137,30 @@ void ConnectionPoints::Draw(DefaultShader shader)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
+// 
 bool ConnectionPoints::createConnection(glm::vec3 rayOrigin, glm::vec3 rayDirection)
 {
 	return false;
 }
 
+// 
 bool ConnectionPoints::deleteConnection(glm::vec3 rayOrigin, glm::vec3 rayDirection)
 {
 	return false;
 }
 
+// 
 void ConnectionPoints::undoConnection()
 {
 }
 
+// Chooses a random face
 Face * ConnectionPoints::randomFace()
 {
 	return faces[intDistribution(generator)];
 }
 
+// Creates a random vertex on a given face using barycentric coordinates
 glm::vec3 ConnectionPoints::randomPoint(Face* face)
 {
 	float r1 = contDistribution(generator);
@@ -161,12 +172,14 @@ glm::vec3 ConnectionPoints::randomPoint(Face* face)
 	return r2 * (face->vertex3 - tVert) + tVert;
 }
 
+// Returns the distance of the closest vertex to point.
 float ConnectionPoints::prominence(glm::vec3 point)
 {
 	glm::vec3 neighbor = octree.getNearestPoint(point);
 	return glm::distance(neighbor, point);
 }
 
+// Returns the lowest vertex of a face.
 glm::vec3 ConnectionPoints::lowestVertex(Face * face)
 {
 	float x1 = face->vertex1.x;

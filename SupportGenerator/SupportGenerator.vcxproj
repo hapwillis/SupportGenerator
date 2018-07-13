@@ -115,8 +115,8 @@
     <LibraryPath>C:\Users\Hap\source\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Users\Hap\source\include;C:\Users\Hap\source\repos\SupportGenerator\SupportGenerator</IncludePath>
-    <LibraryPath>C:\Users\Hap\source\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Users\Hap\source\include;C:\Users\Hap\source\repos\SupportGenerator\SupportGenerator;C:\Users\Hap\source\repos\SupportGenerator\SupportGenerator\include;C:\Users\Hap\source\repos\SupportGenerator\SupportGenerator\headers</IncludePath>
+    <LibraryPath>C:\Users\Hap\source\lib;C:\Users\Hap\source\repos\SupportGenerator\SupportGenerator\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>C:\Users\Hap\source\include;$(IncludePath)</IncludePath>

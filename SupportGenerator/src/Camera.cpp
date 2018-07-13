@@ -18,15 +18,15 @@ Camera::~Camera()
 {
 }
 
-glm::mat4 Camera::GetViewMatrix()
-{
+// Returns a viewMatrix to transform world coordinates to perspective coordinates
+glm::mat4 Camera::GetViewMatrix() {
 	glm::vec3 pos = Target + updateCameraVectors();
 	Position = pos;
 	return glm::lookAt(pos, Target, WorldUp);
 }
 
-void Camera::StartPan(bool start, float xpos, float ypos)
-{
+// Initiates a pan (camera swing) and tracks mouse coordinates
+void Camera::StartPan(bool start, float xpos, float ypos) {
 	if (!TrackMov) {
 		TrackPan = start;
 		XPos = xpos - Yaw;
@@ -34,8 +34,8 @@ void Camera::StartPan(bool start, float xpos, float ypos)
 	}
 }
 
-void Camera::StartMov(bool start, float xpos, float ypos)
-{
+// Initiates a camera movement and tracks mouse coordinates
+void Camera::StartMov(bool start, float xpos, float ypos) {
 	if (!TrackPan) {
 		TrackMov = start;
 		XPos = xpos;
@@ -43,8 +43,8 @@ void Camera::StartMov(bool start, float xpos, float ypos)
 	}
 }
 
-void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPitch)
-{
+// called each frame to update camera position if needed
+void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPitch) {
 	if (TrackMov && TrackPan) {
 		XPos = xpos;
 		YPos = ypos;
@@ -76,26 +76,26 @@ void Camera::ProcessMouseMovement(float xpos, float ypos, GLboolean constrainPit
 	}
 }
 
-void Camera::ProcessMouseScroll(float yoffset)
-{
+// Controls the camera's distance from the target
+void Camera::ProcessMouseScroll(float yoffset) {
 	// Move Position closer to Target
 	Distance = Distance + MouseSensitivity * yoffset;
 }
 
-glm::vec3 Camera::Direction()
-{
+// Returns the direction the camera is looking at
+glm::vec3 Camera::Direction() {
 	return glm::normalize(updateCameraVectors());
 }
 
-void Camera::TargetModel(Model* model) 
-{
+// Sets the camera to look at a model from a pleasant angle
+void Camera::TargetModel(Model* model) {
 	float modelRadius = model->BoundingSphere();
 	Target = glm::vec3(0, .66*modelRadius, 0);
 	Distance = glm::log2(2.5 * modelRadius);
 }
 
-glm::vec3 Camera::updateCameraVectors()
-{
+// converts pitch and yaw values (which are created from mouse movement) to a new position
+glm::vec3 Camera::updateCameraVectors() {
 	// Calculate the new position
 	glm::vec3 newPos;
 	newPos.x = cos(glm::pi<float>() * 2 * (Yaw)) * cos(glm::pi<float>() * (-Pitch + 1.0f));

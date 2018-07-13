@@ -1,9 +1,11 @@
 #include "NavigationMesh.h"
 
+
 Edge::Edge(int a, int b, float len) : indexA(a), indexB(b), length(len)
 {
 
 }
+
 
 EdgeContainer::EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2) :
 	indexA(a), indexB(b)
@@ -40,6 +42,7 @@ EdgeContainer::EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2) :
 	len = glm::distance(e1, e2);
 }
 
+
 EdgeSet::~EdgeSet()
 {
 	for (EdgeContainer *e : edges) {
@@ -47,6 +50,7 @@ EdgeSet::~EdgeSet()
 	}
 }
 
+// 
 void EdgeSet::insert(EdgeContainer *e1)
 {
 	bool notFound = true;
@@ -72,6 +76,7 @@ void EdgeSet::insert(EdgeContainer *e1)
 	}
 }
 
+// 
 size_t KeyFuncs::operator()(const EdgeContainer& e)const
 {
 	std::string s("");
@@ -87,6 +92,7 @@ size_t KeyFuncs::operator()(const EdgeContainer& e)const
 	return std::hash<std::string>()(s);
 }
 
+// 
 bool KeyFuncs::operator()(const EdgeContainer& a, const EdgeContainer& b)const
 {
 	bool v1 = glm::all(glm::equal(a.negVert, b.negVert));
@@ -94,15 +100,18 @@ bool KeyFuncs::operator()(const EdgeContainer& a, const EdgeContainer& b)const
 	return v1 && v2;
 }
 
+// 
 bool operator<(const EdgeContainer& a, const EdgeContainer& b)
 {
 	return a.len > b.len;
 }
 
+// 
 bool operator<(const Edge& a, const Edge& b)
 {
 	return a.length > b.length;
 }
+
 
 NavigationMesh::NavigationMesh(Model &newModel)
 {
@@ -113,11 +122,13 @@ NavigationMesh::NavigationMesh(Model &newModel)
 	//std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 }
 
+
 NavigationMesh::~NavigationMesh()
 {
 	
 }
 
+// 
 Graph * NavigationMesh::getSimpleGraph(float minLength)
 {
 	//float time = glfwGetTime();
@@ -130,6 +141,7 @@ Graph * NavigationMesh::getSimpleGraph(float minLength)
 	return smallGraph;
 }
 
+// 
 void NavigationMesh::decimateMesh(Graph *g, float minLength)
 {
 	EdgeHeap edgeHeap(g->faceVector); // 184 milliseconds
@@ -163,6 +175,7 @@ void NavigationMesh::decimateMesh(Graph *g, float minLength)
 	g->ReduceFootprint();
 }
 
+// 
 Mesh* NavigationMesh::convertToMesh(Graph *g, float offset)
 {
 	//float time = glfwGetTime();
@@ -182,12 +195,14 @@ Mesh* NavigationMesh::convertToMesh(Graph *g, float offset)
 	return mesh;
 }
 
+// 
 void NavigationMesh::PruneSubBedVertices(glm::mat4 model)
 {
 
 	// TODO: pruning
 }
 
+// 
 void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices)
 {
 	for (Face *face : g->faceVector) {
@@ -202,11 +217,13 @@ void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices
 	}
 }
 
+// 
 bool NavigationMesh::edgeValid(Edge *edge, Graph *g)
 {
 	return g->nodes[edge->indexA] && g->nodes[edge->indexB];
 }
 
+// 
 void NavigationMesh::heapTest()
 {
 	EdgeHeap customClass;
@@ -289,6 +306,7 @@ void NavigationMesh::heapTest()
 	}
 }
 
+// 
 void NavigationMesh::Draw(DefaultShader shader)
 {
 	if (mesh) {
@@ -299,11 +317,13 @@ void NavigationMesh::Draw(DefaultShader shader)
 	}
 }
 
+
 EdgeHeap::EdgeHeap()
 {
 	heap.reserve(defaultSize);
 	heap.push_back(NULL); //fill up spot zero
 }
+
 
 EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
 {
@@ -331,6 +351,7 @@ EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
 	}
 }
 
+
 EdgeHeap::~EdgeHeap()
 {
 	for (Edge *e : heap) {
@@ -338,11 +359,13 @@ EdgeHeap::~EdgeHeap()
 	}
 }
 
+// 
 bool EdgeHeap::empty()
 {
 	return heap.size() == 1;
 }
 
+// 
 Edge * EdgeHeap::pop() // 733 milliseconds
 {
 	// This method is O(2logn).  
@@ -388,6 +411,7 @@ Edge * EdgeHeap::pop() // 733 milliseconds
 	return topEdge;
 }
 
+// 
 void EdgeHeap::push(Edge * e)
 {
 	int index = heap.size();
@@ -419,6 +443,7 @@ void EdgeHeap::push(Edge * e)
 	}
 }
 
+// 
 bool EdgeHeap::heapTest()
 {
 	std::default_random_engine gen;

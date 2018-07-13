@@ -25,7 +25,7 @@ class Node
 public:
 	int ID; //serial for each vertex added
 	Vertex vertex;
-	std::vector<int> connections;
+	std::vector<int> connections; // TODO: change to unordered set
 	std::unordered_set<int> faces;
 
 	Node(int index, Vertex v);

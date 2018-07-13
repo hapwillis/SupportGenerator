@@ -1,10 +1,12 @@
 #include "SupportPaths.h"
 
+
 Cylinder::Cylinder(int numSides, float supportWidth) : faces(numSides), width(supportWidth)
 {
 
 }
 
+// 
 void Cylinder::updateGeometry(glm::vec3 startP, glm::vec3 endP)
 {
 	start = startP;
@@ -20,6 +22,7 @@ void Cylinder::updateGeometry(glm::vec3 startP, glm::vec3 endP)
 	genIndices();
 }
 
+// 
 void Cylinder::genVerts(glm::vec3 sinVec, glm::vec3 center)
 {
 	float frac = pi2 / faces;
@@ -32,6 +35,7 @@ void Cylinder::genVerts(glm::vec3 sinVec, glm::vec3 center)
 	}
 }
 
+// 
 void Cylinder::genIndices()
 {
 	for (int a = 0; a < faces - 1; a++) {
@@ -49,20 +53,24 @@ void Cylinder::genIndices()
 	}
 }
 
+
 PFNode::PFNode(Node *aNode) : node(aNode)
 {
 
 }
 
+
 PFNode::~PFNode()
 {
 }
+
 
 Path::Path(std::vector<PFNode> *nodes, float overhang, glm::mat4 model) 
 	: maxOverhang(overhang), nav(nodes), transform(model)
 {
 
 }
+
 
 Path::~Path()
 {
@@ -71,6 +79,7 @@ Path::~Path()
 	delete(path[1]);
 }
 
+// 
 void Path::addNode(Node *node)
 {
 	PFNode *pathNode = new PFNode(node);
@@ -80,6 +89,7 @@ void Path::addNode(Node *node)
 	pathNode->costToEnd = getCost(pathNode);
 }
 
+// 
 void Path::aStar(bool pathFound)
 {
 	glm::vec3 origin = path[1]->node->vertex.Position;
@@ -140,6 +150,7 @@ void Path::aStar(bool pathFound)
 	}
 }
 
+// 
 void Path::Geometry()
 {
 	if (path.size() < 1)
@@ -199,6 +210,7 @@ void Path::Geometry()
 	glBindVertexArray(0);
 }
 
+// 
 void Path::Draw(DefaultShader shader)
 {
 	if (pathGeometry) {
@@ -223,6 +235,7 @@ void Path::Draw(DefaultShader shader)
 	}
 }
 
+// 
 float Path::getCost(PFNode *node)
 {
 	if (node->node->connections.size() == 0) {
@@ -232,6 +245,7 @@ float Path::getCost(PFNode *node)
 	return (transform*(glm::vec4(node->node->vertex.Position, 1.0f))).z;
 }
 
+// 
 void Path::restartAStar()
 {
 	closed.clear();
@@ -245,6 +259,7 @@ void Path::restartAStar()
 	aStar(true);
 }
 
+// 
 void Path::retracePath(PFNode* end)
 {
 	std::vector<PFNode*> backwards;
@@ -262,6 +277,7 @@ void Path::retracePath(PFNode* end)
 	seen.clear();
 	open = std::priority_queue<PFNode*, std::vector<PFNode*>, PFNodeComparator>();
 }
+
 
 SupportPaths::SupportPaths(Graph *model, Graph *nav, std::vector<std::tuple<glm::vec3, Face*>> p, float max, float offset) :
 	modelGraph(model), navGraph(nav), maxOverhang(max)
@@ -281,11 +297,13 @@ SupportPaths::SupportPaths(Graph *model, Graph *nav, std::vector<std::tuple<glm:
 	paths.reserve(points.size()); 
 }
 
+
 SupportPaths::~SupportPaths()
 {
 
 }
 
+// 
 void SupportPaths::FindPaths()
 {
 	int failedPaths = 0;
@@ -313,11 +331,13 @@ void SupportPaths::FindPaths()
 	regroupPaths();
 }
 
+// 
 void SupportPaths::Geometry(int faces, float tipD)
 {
 	// TODO: Geometry()
 }
 
+// 
 void SupportPaths::Draw(DefaultShader shader)
 {
 	// TODO: completed paths should have their own geometry- render that 
@@ -327,11 +347,13 @@ void SupportPaths::Draw(DefaultShader shader)
 	}
 }
 
+// 
 void SupportPaths::DeleteSupport()
 {
 	// TODO: DeleteSupport
 }
 
+// 
 Path* SupportPaths::findStartNode(glm::vec3 point)
 {
 	// TODO: can just take face from ConnectionPoints.pointFaces
@@ -369,16 +391,19 @@ Path* SupportPaths::findStartNode(glm::vec3 point)
 	return path;
 }
 
+// 
 void SupportPaths::regroupPaths()
 {
 	// TODO: regroupPaths
 }
 
+// 
 void SupportPaths::descendPaths() //rename to RegularizePaths
 {
 	// TODO: path relaxation of anything under maxAngle
 }
 
+// 
 void SupportPaths::Relax(float degree)
 {
 	// TODO: Path Relaxation
@@ -395,6 +420,7 @@ void SupportPaths::Relax(float degree)
 
 }
 
+// 
 void SupportPaths::intersectionGeometry()
 {
 	// TODO: intersectionGeometry
@@ -405,16 +431,19 @@ void SupportPaths::intersectionGeometry()
 	// move far vertices back to the point of collision, split the collided face
 }
 
+// 
 void SupportPaths::tip()
 {
 	// TODO: tip
 }
 
+// 
 void SupportPaths::base()
 {
 	// TODO: base
 }
 
+// 
 void SupportPaths::cylinderSegment()
 {
 	// TODO: cylinderSegment
