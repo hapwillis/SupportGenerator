@@ -14,7 +14,7 @@ public:
   bool removed = false; // set to true on removal
   weak_ptr<Node> parentA;
   weak_ptr<Node> parentB;
-  Vertex vertex_;
+  shared_ptr<Vertex> vertex_;
   unordered_set<weak_ptr<Node>> connections_; // TODO: change to unordered set
 
   Node(int index, Vertex v);
