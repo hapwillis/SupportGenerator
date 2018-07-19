@@ -29,6 +29,7 @@
     <ClCompile Include="src\NavigationMesh.cpp" />
     <ClCompile Include="src\Octree.cpp" />
     <ClCompile Include="src\SupportPaths.cpp" />
+    <ClCompile Include="SupportProcessor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\Camera.h" />
@@ -40,6 +41,7 @@
     <ClInclude Include="headers\nuklear.h" />
     <ClInclude Include="headers\Octree.h" />
     <ClInclude Include="headers\SupportPaths.h" />
+    <ClInclude Include="SupportProcessor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ClassDiagram.cd" />

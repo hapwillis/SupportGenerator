@@ -8,6 +8,7 @@
 
 #include <DefaultShader.h>
 
+#include <memory>
 #include <vector>
 #include <string>
 #include <unordered_set>
@@ -17,6 +18,9 @@
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
+
+using std::unique_ptr;
+using std::vector;
 
 struct Vertex {
 	glm::vec3 Position;
@@ -29,11 +33,11 @@ struct Vertex {
 
 class Mesh {
 public:
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> indices;
+	vector<Vertex> vertices;
+	vector<unsigned int> indices;
 	unsigned int VAO;
 
-	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices);
+	Mesh(vector<Vertex> vertices, vector<unsigned int> indices);
 
 	void Draw(DefaultShader shader);
 
@@ -49,8 +53,6 @@ public:
 	float boundingRadius = 0.0f;
 	float AABB = 0.0f;
 	std::vector<Mesh> meshes;
-	std::vector<Vertex*> denseVertices;
-	std::vector<unsigned int> denseIndices;
 
 	Model(std::string &path);
 	~Model();

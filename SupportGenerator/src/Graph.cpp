@@ -1,6 +1,28 @@
 #include "Graph.h"
 
 
+Node::Node(int index, Vertex v) :
+  ID(index), vertex(v) {
+
+}
+
+
+Node::Node(int index, glm::vec3 pos, glm::vec3 norm, bool wireframe) :
+  ID(index) {
+  vertex = Vertex(pos, norm, wireframe);
+}
+
+
+void Node::addConnection(int index) {
+  connections.push_back(index);
+}
+
+// Adds a face to this Node, ignoring duplicates.
+void Node::addFace(int face) {
+  faces.insert(face);
+}
+
+
 Graph::Graph(Model &model) {
 	Range = model.AABBsize();
 	int index = 0;

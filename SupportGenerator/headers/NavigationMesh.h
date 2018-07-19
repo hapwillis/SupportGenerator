@@ -1,35 +1,40 @@
 #pragma once
 
-#include "Graph.h"
+#include <Graph.h>
   
 #include <random>
 
+using std::vector;
+using std::tuple;
+using std::shared_ptr;
+using std::unordered_multimap;
+using glm::vec3;
 
 struct Edge {
-	unsigned int indexA;
-	unsigned int indexB;
-	float length;
+	unsigned int indexA_;
+	unsigned int indexB_;
+	float length_;
 
 	Edge(int a, int b, float len);
 };
 
 struct EdgeContainer {
-	unsigned int indexA;
-	unsigned int indexB;
-	glm::vec3 negVert;
-	glm::vec3 posVert;
-	float len;
+	unsigned int indexA_;
+	unsigned int indexB_;
+	vec3 negVert_;
+	vec3 posVert_;
+	float length_;
 
-	EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2);
+	EdgeContainer(int a, int b, vec3 e1, vec3 e2);
 };
 
 class EdgeHeap {
 public:
-	const unsigned int defaultSize = 20;
-	std::vector<Edge*> heap;
+	const unsigned int defaultSize_ = 20;
+	vector<Edge> heap_;
 
 	EdgeHeap();
-	EdgeHeap(std::vector<Face*> &faces);
+	EdgeHeap(vector<shared_ptr<Face>> &faces);
 	~EdgeHeap();
 
 	bool empty();
@@ -39,8 +44,8 @@ public:
 };
 
 struct EdgeSet {
-	std::unordered_multimap<float, EdgeContainer*> edgeMap;
-	std::vector<EdgeContainer*> edges;
+	unordered_multimap<float, EdgeContainer*> edgeMap_;
+	vector<EdgeContainer*> edges_;
 
 	~EdgeSet();
 
@@ -58,9 +63,9 @@ class NavigationMesh
 {
 public:
 	unsigned int VAO, VBO, EBO;
-	Model *model = NULL; 
-	Graph *graph = NULL; 
-	Mesh *mesh = NULL; 
+  shared_ptr<Model> model_;
+  shared_ptr<Graph> graph_;
+  shared_ptr<Mesh> mesh_;
 
 
 	NavigationMesh(Model &newModel); 

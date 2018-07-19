@@ -1,51 +1,51 @@
 #include "NavigationMesh.h"
 
 
-Edge::Edge(int a, int b, float len) : indexA(a), indexB(b), length(len)
+Edge::Edge(int a, int b, float length_) : indexA_(a), indexB_(b), length_(length_)
 {
 
 }
 
 
 EdgeContainer::EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2) :
-	indexA(a), indexB(b)
+	indexA_(a), indexB_(b)
 {
 	if (e1.x < e2.x) {
-		negVert = e1;
-		posVert = e2;
+		negVert_ = e1;
+		posVert_ = e2;
 	}
 	else if (e1.x == e2.x) {
 		if (e1.y < e2.y) {
-			negVert = e1;
-			posVert = e2;
+			negVert_ = e1;
+			posVert_ = e2;
 		}
 		else if (e1.y == e2.y) {
 			if (e1.z < e2.z) {
-				negVert = e1;
-				posVert = e2;
+				negVert_ = e1;
+				posVert_ = e2;
 			}
 			else {
-				negVert = e2;
-				posVert = e1;
+				negVert_ = e2;
+				posVert_ = e1;
 			}
 		}
 		else {
-			negVert = e2;
-			posVert = e1;
+			negVert_ = e2;
+			posVert_ = e1;
 		}
 	}
 	else {
-		negVert = e2;
-		posVert = e1;
+		negVert_ = e2;
+		posVert_ = e1;
 	}
 
-	len = glm::distance(e1, e2);
+	length_ = glm::distance(e1, e2);
 }
 
 
 EdgeSet::~EdgeSet()
 {
-	for (EdgeContainer *e : edges) {
+	for (EdgeContainer *e : edges_) {
 		delete(e);
 	}
 }
@@ -53,15 +53,15 @@ EdgeSet::~EdgeSet()
 void EdgeSet::insert(EdgeContainer *e1)
 {
 	bool notFound = true;
-	float key = e1->posVert.x; // TODO: this really isn't a great key.
-	auto range = edgeMap.equal_range(key);
+	float key = e1->posVert_.x; // TODO: this really isn't a great key.
+	auto range = edgeMap_.equal_range(key);
 
 	//check edgeMap for key, then find any equal edges
 	for (auto r = range.first; r != range.second; r++) {
 		EdgeContainer *e2 = r->second;
 
-		bool posEqual = glm::all(glm::equal(e1->posVert, e2->posVert));
-		bool negEqual = glm::all(glm::equal(e1->negVert, e2->negVert));
+		bool posEqual = glm::all(glm::equal(e1->posVert_, e2->posVert_));
+		bool negEqual = glm::all(glm::equal(e1->negVert_, e2->negVert_));
 		if (posEqual && negEqual) {
 			notFound = false;
 			break;
@@ -70,8 +70,8 @@ void EdgeSet::insert(EdgeContainer *e1)
 
 	//if not found, insert this point and set translate[tIndex] = vIndex
 	if (notFound) {
-		edgeMap.insert(std::pair<float, EdgeContainer*>(key, e1));
-		edges.push_back(e1);
+		edgeMap_.insert(std::pair<float, EdgeContainer*>(key, e1));
+		edges_.push_back(e1);
 	}
 }
 
@@ -80,8 +80,8 @@ void EdgeSet::insert(EdgeContainer *e1)
 size_t KeyFuncs::operator()(const EdgeContainer& e)const
 {
 	std::string s("");
-	glm::vec3 n = e.negVert;
-	glm::vec3 p = e.posVert;
+	glm::vec3 n = e.negVert_;
+	glm::vec3 p = e.posVert_;
 	s.append(std::to_string(n.x));
 	s.append(std::to_string(n.y));
 	s.append(std::to_string(n.z));
@@ -92,33 +92,33 @@ size_t KeyFuncs::operator()(const EdgeContainer& e)const
 	return std::hash<std::string>()(s);
 }
 
-// Custom comparator for sets to prevent equivalent edges.
+// Custom comparator for sets to prevent equivalength_t edges.
 bool KeyFuncs::operator()(const EdgeContainer& a, const EdgeContainer& b)const
 {
-	bool v1 = glm::all(glm::equal(a.negVert, b.negVert));
-	bool v2 = glm::all(glm::equal(a.posVert, b.posVert));
+	bool v1 = glm::all(glm::equal(a.negVert_, b.negVert_));
+	bool v2 = glm::all(glm::equal(a.posVert_, b.posVert_));
 	return v1 && v2;
 }
 
 // Custom comparator for std::priority_heap for EdgeContainers.
 bool operator<(const EdgeContainer& a, const EdgeContainer& b)
 {
-	return a.len > b.len;
+	return a.length_ > b.length_;
 }
 
 // Custom comparator for std::priority_heap for Edges.
 bool operator<(const Edge& a, const Edge& b)
 {
-	return a.length > b.length;
+	return a.length_ > b.length_;
 }
 
 
 NavigationMesh::NavigationMesh(Model &newModel)
 {
-	model = &newModel; 
+	model_ = &newModel; 
 	//double time = glfwGetTime();
 	// 27.6864 seconds to build graph
-	graph = new Graph(*model);
+	graph_ = new Graph(*model_);
 	//std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 }
 
@@ -129,24 +129,24 @@ NavigationMesh::~NavigationMesh()
 }
 
 // Returns a new simplified (decimated), scaled and cleaned Graph.
-Graph * NavigationMesh::getSimpleGraph(float minLength)
+Graph * NavigationMesh::getSimpleGraph(float minlength_)
 {
 	//float time = glfwGetTime();
 	// 57.52 seconds to run decimateMesh
 
 	Graph *smallGraph = new Graph(graph->nodes, graph->faceVector);
-	decimateMesh(smallGraph, minLength);
+	decimateMesh(smallGraph, minlength_);
 	//std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
 	return smallGraph;
 }
 
-// Simplifies a mesh by removing the smallest edge until all edges are longer than minLength.
-void NavigationMesh::decimateMesh(Graph *g, float minLength)
+// Simplifies a mesh by removing the smallest edge until all edges are longer than minlength_.
+void NavigationMesh::decimateMesh(Graph *g, float minlength_)
 {
 	EdgeHeap edgeHeap(g->faceVector); // 184 milliseconds
 	float smallestEdge = 0.0f;
-	while (!edgeHeap.empty() && smallestEdge < minLength) {
+	while (!edgeHeap.empty() && smallestEdge < minlength_) {
 		//	pop() until you get a valid edge (ie both vertices exist)
 		Edge *e = edgeHeap.pop();
 		while (!edgeValid(e, g) && !edgeHeap.empty()) { // 736 milliseconds
@@ -154,7 +154,7 @@ void NavigationMesh::decimateMesh(Graph *g, float minLength)
 			e = edgeHeap.pop();
 		}
 
-		int newIndex = g->CombineNodes(e->indexA, e->indexB); // 847 milliseconds
+		int newIndex = g->CombineNodes(e->indexA_, e->indexB_); // 847 milliseconds
 		glm::vec3 a = g->nodes[newIndex]->vertex.Position;
 
 		//	add all the new edges to the minheap
@@ -162,13 +162,13 @@ void NavigationMesh::decimateMesh(Graph *g, float minLength)
 			Node *node = g->nodes[connection];
 			if (node) {
 				glm::vec3 b = node->vertex.Position;
-				float length = glm::distance(a, b);
+				float length_ = glm::distance(a, b);
 		
-				edgeHeap.push(new Edge(newIndex, connection, length));
+				edgeHeap.push(new Edge(newIndex, connection, length_));
 			}
 		}
 
-		smallestEdge = e->length;
+		smallestEdge = e->length_;
 		delete(e);
 	} 
 
@@ -220,7 +220,7 @@ void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices
 // Returns true if the nodes composing an edge exist.  
 bool NavigationMesh::edgeValid(Edge *edge, Graph *g)
 {
-	return g->nodes[edge->indexA] && g->nodes[edge->indexB];
+	return g->nodes[edge->indexA_] && g->nodes[edge->indexB_];
 }
 
 // Compares a std::priority_queue to my implementation.  
@@ -258,15 +258,15 @@ void NavigationMesh::heapTest()
 
 	int emptyHeapErrors = 0;
 	int outOfOrderErrors = 0;
-	float heapMin = builtInClass.top().length;
+	float heapMin = builtInClass.top().length_;
 	builtInClass.pop();
 	for (int i = 0; i < testNumber - 1; i++) {
 		if (builtInClass.empty())
 			emptyHeapErrors++;
-		if (builtInClass.top().length < heapMin)
+		if (builtInClass.top().length_ < heapMin)
 			outOfOrderErrors++;
 		
-		heapMin = builtInClass.top().length;
+		heapMin = builtInClass.top().length_;
 		builtInClass.pop();
 	}
 	if (emptyHeapErrors > 0)
@@ -292,12 +292,12 @@ void NavigationMesh::heapTest()
 		builtInClass.push(testEdges.back());
 	}
 	size--;
-	heapMin = builtInClass.top().length;
+	heapMin = builtInClass.top().length_;
 	builtInClass.pop();
 	outOfOrderErrors = 0;
 	while (!builtInClass.empty()) {
 		size--;
-		if (builtInClass.top().length < heapMin)
+		if (builtInClass.top().length_ < heapMin)
 			outOfOrderErrors++;
 		builtInClass.pop();
 	}
@@ -349,7 +349,7 @@ EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
 
 	// Insert the unique edges to a heap
 	for (EdgeContainer *e : edges.edges) {
-		push(new Edge(e->indexA, e->indexB, e->len));
+		push(new Edge(e->indexA_, e->indexB_, e->length_));
 	}
 }
 
@@ -375,7 +375,7 @@ Edge * EdgeHeap::pop() // 733 milliseconds
 	// then filling that leaf with another leaf and bubbling it up.
 	Edge *topEdge = heap[1];
 	Edge *bubbleEdge = heap.back();
-	float bubbleLength = bubbleEdge->length;
+	float bubblelength_ = bubbleEdge->length_;
 	heap[1] = bubbleEdge;
 	heap.pop_back();
 
@@ -384,9 +384,9 @@ Edge * EdgeHeap::pop() // 733 milliseconds
 	int minIndex = index;
 
 	while (leftChild < heap.size()) {
-		float minValue = bubbleLength;
+		float minValue = bubblelength_;
 
-		float childValue = heap[leftChild]->length; // 164 milliseconds
+		float childValue = heap[leftChild]->length_; // 164 milliseconds
 		if (childValue < minValue) { // 410 milliseconds
 			minValue = childValue;
 			minIndex = leftChild;
@@ -394,7 +394,7 @@ Edge * EdgeHeap::pop() // 733 milliseconds
 		
 		int rightChild = leftChild + 1;
 		if (rightChild < heap.size()) {
-			childValue = heap[rightChild]->length;
+			childValue = heap[rightChild]->length_;
 			if (childValue < minValue) {
 				minIndex = rightChild;
 			}
@@ -427,10 +427,10 @@ void EdgeHeap::push(Edge * e)
 		// the caller start faster then it might be worth it.
 		// You'd just join the thread at the top of pop().
 		Edge *swapHolder = heap[parent];
-		float insertValue = e->length;
-		float parentValue = heap[parent]->length;
+		float insertValue = e->length_;
+		float parentValue = heap[parent]->length_;
 
-		while (insertValue < parentValue) { // i/2 is equivalent to floor(i/2)
+		while (insertValue < parentValue) { // i/2 is equivalength_t to floor(i/2)
 			heap[index] = swapHolder;
 			heap[parent] = e;
 
@@ -442,7 +442,7 @@ void EdgeHeap::push(Edge * e)
 				parent >>= 1;
 
 			swapHolder = heap[parent];
-			parentValue = swapHolder->length;
+			parentValue = swapHolder->length_;
 		}
 	}
 }
@@ -473,7 +473,7 @@ bool EdgeHeap::heapTest()
 		return false;
 	}
 
-	float heapMin = pop()->length;
+	float heapMin = pop()->length_;
 	for (int i = 0; i < testNumber - 1; i++) {
 		if (empty()) {
 			std::cout << "Error!  Edgeheap empty!" << std::endl;
@@ -481,12 +481,12 @@ bool EdgeHeap::heapTest()
 		}
 			
 		Edge *e = pop();
-		if (e->length < heapMin) {
+		if (e->length_ < heapMin) {
 			std::cout << "Error!  Edges returned out of order!" << std::endl;
 			return false;
 		}
 
-		heapMin = e->length;
+		heapMin = e->length_;
 	}
 	if (!empty()) {
 		std::cout << "Error!  Edgeheap not empty!" << std::endl;
@@ -508,11 +508,11 @@ bool EdgeHeap::heapTest()
 		push(testEdges.back());
 	}
 	size--;
-	heapMin = pop()->length;
+	heapMin = pop()->length_;
 	while (!empty()) {
 		size--;
 		Edge *e = pop();
-		if (e->length < heapMin) {
+		if (e->length_ < heapMin) {
 			std::cout << "Error!  Edges returned out of order!" << std::endl;
 			return false;
 		}

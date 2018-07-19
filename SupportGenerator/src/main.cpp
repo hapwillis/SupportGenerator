@@ -43,6 +43,7 @@ bool selectSupportFlag = false;
 const float SupportOffset = 2.0f;
 const float SupportWidth = 5.0f;
 const float maxOverhang = 0.785398f;
+
 Model *model = {0};
 NavigationMesh *navMesh = { 0 };
 Graph *navGraph = { 0 };
