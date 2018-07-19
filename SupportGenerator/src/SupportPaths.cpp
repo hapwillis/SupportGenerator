@@ -1,7 +1,7 @@
 #include "SupportPaths.h"
 
 
-Cylinder::Cylinder(int numSides, float supportWidth) : faces(numSides), width(supportWidth)
+Cylinder::Cylinder(int numSides, float supportWidth) : faces_(numSides), width_(supportWidth)
 {
 
 }
@@ -9,15 +9,15 @@ Cylinder::Cylinder(int numSides, float supportWidth) : faces(numSides), width(su
 // Relocates the cylinder under consideration.
 void Cylinder::updateGeometry(glm::vec3 startP, glm::vec3 endP)
 {
-	start = startP;
-	end = endP;
-	glm::vec3 sinVec = glm::cross(glm::normalize(end - start), cosVec);
+	start_ = startP;
+	end_ = endP;
+	glm::vec3 sinVec = glm::cross(glm::normalize(end_ - start_), cosVec);
 
-	vertices.clear();
-	indices.clear();
+	vertices_.clear();
+	indices_.clear();
 
-	genVerts(sinVec, start);
-	genVerts(sinVec, end);
+	genVerts(sinVec, start_);
+	genVerts(sinVec, end_);
 
 	genIndices();
 }
@@ -25,36 +25,36 @@ void Cylinder::updateGeometry(glm::vec3 startP, glm::vec3 endP)
 // Generates new vertices for a given cylinder position.
 void Cylinder::genVerts(glm::vec3 sinVec, glm::vec3 center)
 {
-	float frac = pi2 / faces;
-	for (int face = 0; face < faces; face++) {
+	float frac = pi2 / faces_;
+	for (int face = 0; face < faces_; face++) {
 		float theta = frac * face;
 		glm::vec3 pos = center;
 		pos += std::sin(theta) * sinVec + std::cos(theta) * cosVec;
 	
-		vertices.push_back(pos);
+		vertices_.push_back(pos);
 	}
 }
 
 // Generates indices from the current vertices.
 void Cylinder::genIndices()
 {
-	for (int a = 0; a < faces - 1; a++) {
+	for (int a = 0; a < faces_ - 1; a++) {
 		int b = a + 1;
-		int c = a + faces;
-		int d = b + faces;
+		int c = a + faces_;
+		int d = b + faces_;
 
-		indices.push_back(a);
-		indices.push_back(b);
-		indices.push_back(d);
+		indices_.push_back(a);
+		indices_.push_back(b);
+		indices_.push_back(d);
 
-		indices.push_back(a);
-		indices.push_back(d);
-		indices.push_back(c);
+		indices_.push_back(a);
+		indices_.push_back(d);
+		indices_.push_back(c);
 	}
 }
 
 
-PFNode::PFNode(Node *aNode) : node(aNode)
+PFNode::PFNode(shared_ptr<Node> node) : node_(node)
 {
 
 }
@@ -66,7 +66,7 @@ PFNode::~PFNode()
 
 
 Path::Path(std::vector<PFNode> *nodes, float overhang, glm::mat4 model) 
-	: maxOverhang(overhang), nav(nodes), transform(model)
+	: maxOverhang_(overhang), nav_(nodes), transform_(model)
 {
 
 }
@@ -74,78 +74,74 @@ Path::Path(std::vector<PFNode> *nodes, float overhang, glm::mat4 model)
 
 Path::~Path()
 {
-	delete pathGeometry;
-	delete(path[0]);
-	delete(path[1]);
 }
 
 // Creates an internal PFNode from a Node object.
-void Path::addNode(Node *node)
+void Path::addNode(shared_ptr<Node> node)
 {
-	PFNode *pathNode = new PFNode(node);
-	if (path.size() > 0)
-		closed.insert(path.back()->node->ID);
-	path.push_back(pathNode);
-	pathNode->costToEnd = getCost(pathNode);
+  shared_ptr<PFNode> pathNode = shared_ptr<PFNode>(new PFNode(node));
+	if (path_.size() > 0)
+		closed_.insert(path_.back());
+	path_.push_back(pathNode);
+	pathNode->costToEnd_ = getCost(pathNode);
 }
 
 // Runs A* on this path.  
 // If pathFound is true, paths will jump directly to the bed.
 void Path::aStar(bool pathFound)
 {
-	glm::vec3 origin = path[1]->node->vertex.Position;
+	glm::vec3 origin = path_[1]->node_->vertex_.Position;
 
-	while (!open.empty()) {
-		PFNode *current = open.top();
-		glm::vec3 currentPos = current->node->vertex.Position;
+	while (!open_.empty()) {
+    shared_ptr<PFNode> current = open_.top();
+		glm::vec3 currentPos = current->node_->vertex_.Position;
 		if (currentPos.z <= 0.000000001f) {
 			retracePath(current);
 			return;
 		}
-		closed.insert(current->node->ID);
-		open.pop();
-		if (current->node->connections.size() > 0) {
-			PFNode *pNode = &(*nav)[current->node->connections[0]];
-			float dist = glm::distance(currentPos, pNode->node->vertex.Position);
-			float least = pNode->costToEnd + dist;
+		closed_.insert(current);
+		open_.pop();
+		if (current->node_->connections_.size() > 0) {
+      shared_ptr<PFNode> pNode = current->node_->connections_.begin()->lock();
+			float dist = glm::distance(currentPos, pNode->node_->vertex_.Position);
+			float least = pNode->costToEnd_ + dist;
 
-			for (int c : current->node->connections) { 
-				if (closed.count(c) == 0) {
-					glm::vec3 cVect = glm::normalize((*nav)[c].node->vertex.Position - origin);
+			for (weak_ptr<Node> connection : current->node_->connections_) { 
+        shared_ptr<Node> c = connection.lock();
+				if (closed_.count(c) == 0) {
+					glm::vec3 cVect = glm::normalize((*nav_)[c].node_->vertex_.Position - origin);
 					float angle = std::acos(glm::dot(cVect, glm::vec3(0.0f, 0.0f, -1.0f)));
 
-					if (angle < maxOverhang) {
-						pNode = &(*nav)[c];
-						dist = glm::distance(currentPos, pNode->node->vertex.Position);
-						float toStart = current->costToStart + dist;
-						float temp = pNode->costToEnd + dist;
+					if (angle < maxOverhang_) {
+						pNode = &(*nav_)[c];
+						dist = glm::distance(currentPos, pNode->node_->vertex_.Position);
+						float toStart = current->costToStart_ + dist;
+						float temp = pNode->costToEnd_ + dist;
 						if (temp < least)
 							least = temp;
 
-						if (seen.count(c) == 0 || toStart < pNode->costToStart) { //only add old nodes
-							if (pNode->costToEnd >= 0.0) { //filter invalid nodes
-								pNode->costToStart = toStart;
-								pNode->parent = current;
-								pNode->pathCost = pNode->costToStart + pNode->costToEnd;
-								open.push(pNode);
+						if (seen_.count(c) == 0 || toStart < pNode->costToStart_) { //only add old nodes
+							if (pNode->costToEnd_ >= 0.0) { //filter invalid nodes
+								pNode->costToStart_ = toStart;
+								pNode->parent_ = current;
+								pNode->pathCost_ = pNode->costToStart_ + pNode->costToEnd_;
+								open_.push(pNode);
 							}
 						}
 					} else {
-						closed.insert(c);
+						closed_.insert(c);
 					}
 				}
 			}
-			current->costToEnd = least; 
-			current->pathCost = current->costToStart + current->costToEnd;
+			current->costToEnd_ = least; 
+			current->pathCost_ = current->costToStart_ + current->costToEnd_;
 		} else {
 			std::cout << "Error: unconnected node." << std::endl;
 		}
 	}
 
 	if (pathFound) {
-		delete(path[0]);
-		delete(path[1]);
-		path.clear();
+		path_.clear();
 	} else {
 		restartAStar(); // No direct path found- check if any nodes can see bed
 	}
@@ -154,37 +150,37 @@ void Path::aStar(bool pathFound)
 //  Generates Cylinders for each segment of the path and sets up rendering.
 void Path::Geometry()
 {
-	if (path.size() < 1)
+	if (path_.size() < 1)
 		return;
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
-	vertices.reserve(faces * path.size() * 2);
-	indices.reserve(faces * path.size() * 6);
-	Cylinder c = Cylinder(faces, 0.5f); //set the characteristics of the cylinder generator
+	vertices.reserve(faces_ * path_.size() * 2);
+	indices.reserve(faces_ * path_.size() * 6);
+	Cylinder c = Cylinder(faces_, 0.5f); //set the characteristics of the cylinder generator
 
 	// TODO: move this logic into Cylinder; have it add new vertices and indices each time it's given a new point.
-	for (int i = 1; i < (path.size() - 1); i++) {
-		c.updateGeometry(path[i]->node->vertex.Position, path[i + 1]->node->vertex.Position);
+	for (int i = 1; i < (path_.size() - 1); i++) {
+		c.updateGeometry(path_[i]->node_->vertex_.Position, path_[i + 1]->node_->vertex_.Position);
 		glm::vec3 norm = glm::vec3(0.0f, 0.0f, 0.0f);
 		
 		int vOffset = vertices.size();
-		for (glm::vec3 pos : c.vertices) {
+		for (glm::vec3 pos : c.vertices_) {
 			vertices.emplace_back(pos, norm, true);
 			//vertices.push_back(Vertex(pos, norm, true));
 		}
 		
-		for (int i : c.indices) {
+		for (int i : c.indices_) {
 			indices.push_back(i + vOffset);
 		}
 	}
 
-	pathGeometry = new Mesh(vertices, indices);
+	pathGeometry_ = new Mesh(vertices, indices);
 
-	for (PFNode *n : path) {
-		renderpoints.push_back(n->node->vertex);
+	for (shared_ptr<PFNode> n : path_) {
+		renderpoints_.push_back(n->node_->vertex_);
 	}
 
-	pathStep = 1;
+	pathStep_ = 1;
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	glPointSize(10.0f);
 
@@ -197,7 +193,7 @@ void Path::Geometry()
 	// A great thing about structs is that their memory layout is sequential for all its items.
 	// The effect is that we can simply pass a pointer to the struct and it translates perfectly to a glm::vec3/2 array which
 	// again translates to 3/2 floats which translates to a byte array.
-	glBufferData(GL_ARRAY_BUFFER, renderpoints.size() * sizeof(Vertex), &renderpoints[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, renderpoints_.size() * sizeof(Vertex), &renderpoints_[0], GL_STATIC_DRAW);
 
 	// set the vertex attribute pointers
 	// vertex Positions
@@ -214,10 +210,10 @@ void Path::Geometry()
 // Draws the Cylinder geometry as well as a GL_POINT at each PFNode.  
 // Also animates the travel of the path.
 void Path::Draw(DefaultShader shader) {
-	if (pathGeometry) {
+	if (pathGeometry_) {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		shader.setVec4("color", glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-		pathGeometry->Draw(shader);
+		pathGeometry_->Draw(shader);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_POINTS);
@@ -227,9 +223,9 @@ void Path::Draw(DefaultShader shader) {
 		glBindVertexArray(0);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-		pathStep++;
-		if (pathStep == renderpoints.size())
-			pathStep = 1;
+		pathStep_++;
+		if (pathStep_ == renderpoints_.size())
+			pathStep_ = 1;
 		
 	} else {
 		Geometry();
@@ -239,66 +235,66 @@ void Path::Draw(DefaultShader shader) {
 // Calculates cost for PFNode node. 
 //    Invalid nodes (eg unconnected) return -1
 //    Valid nodes return admissible (underestimating) distances to the bed.
-float Path::getCost(PFNode *node) {
-	if (node->node->connections.size() == 0) {
+float Path::getCost(shared_ptr<PFNode> node) {
+	if (node->node_->connections_.size() == 0) {
 		return -1;
 	}
 
   // TODO: actually test distance to bed and nodes where position.z = 0.0f
 
-	return (transform*(glm::vec4(node->node->vertex.Position, 1.0f))).z;
+	return (transform_*(glm::vec4(node->node_->vertex_.Position, 1.0f))).z;
 }
 
 // Resets this path object, then attempts to pathfind by allowing nodes to skip directly to the bed.
 void Path::restartAStar()
 {
-	closed.clear();
-	seen.clear();
-	open = std::priority_queue<PFNode*, std::vector<PFNode*>, PFNodeComparator>();
-	open.push(path.back());
-	seen.insert(path.back()->node->ID);
-	for (int i = 0; i < path.size() - 1; i++) {
-		closed.insert(path[i]->node->ID);
+	closed_.clear();
+	seen_.clear();
+	open_ = std::priority_queue<shared_ptr<PFNode>, std::vector<shared_ptr<PFNode>>, PFNodeComparator>();
+	open_.push(path_.back());
+	seen_.insert(path_.back());
+	for (int i = 0; i < path_.size() - 1; i++) {
+		closed_.insert(path_[i]);
 	}
 	aStar(true);
 }
 
 // Fills a path vector by following the parentage of a valid end PFNode.
-void Path::retracePath(PFNode* end)
+void Path::retracePath(shared_ptr<PFNode> end)
 {
-	std::vector<PFNode*> backwards;
+	std::vector<shared_ptr<PFNode>> backwards;
 	backwards.push_back(end);
-	while (backwards.back()->parent) {
-		backwards.push_back(backwards.back()->parent);
+	while (backwards.back()->parent_) {
+		backwards.push_back(backwards.back()->parent_);
 	}
 
 	while (backwards.size() > 0) {
-		path.push_back(backwards.back());
+		path_.push_back(backwards.back());
 		backwards.pop_back();
 	}
 
-	closed.clear();
-	seen.clear();
-	open = std::priority_queue<PFNode*, std::vector<PFNode*>, PFNodeComparator>();
+	closed_.clear();
+	seen_.clear();
+	open_ = std::priority_queue<shared_ptr<PFNode>, std::vector<shared_ptr<PFNode>>, PFNodeComparator>();
 }
 
 
 SupportPaths::SupportPaths(Graph *model, Graph *nav, std::vector<std::tuple<glm::vec3, Face*>> p, float max, float offset) :
-	modelGraph(model), navGraph(nav), maxOverhang(max)
+	modelGraph_(model), navGraph_(nav), maxOverhang_(max)
 {
 	//std::cout << "Checking validity of navGraph..." << std::endl;
 	//navGraph->test();
 	
 	for (auto tuple : p) {
-		points.push_back(std::get<0>(tuple));
+		points_.push_back(std::get<0>(tuple));
 	}
 
-	for (Node *n : navGraph->nodes) {
-		nodes.push_back(PFNode(n));
-		nodes.back().costToEnd = (transform*(glm::vec4(n->vertex.Position, 1.0f))).z;
+	for (shared_ptr<Node> n : navGraph_->nodes_) {
+		nodes_.push_back(PFNode(n));
+		nodes_.back().costToEnd_ = (transform_*(glm::vec4(n->vertex_.Position, 1.0f))).z;
 	}
 
-	paths.reserve(points.size()); 
+	paths_.reserve(points_.size()); 
 }
 
 
@@ -317,11 +313,11 @@ void SupportPaths::FindPaths()
 {
 	int failedPaths = 0;
 
-	for (glm::vec3 &point : points) {
+	for (glm::vec3 &point : points_) {
 		Path *path = findStartNode(point);
-		paths.push_back(path);
-		if (path->path.size() > 0) {
-			path->open.push(path->path.back());
+		paths_.push_back(path);
+		if (path->path_.size() > 0) {
+			path->open_.push(path->path_.back());
 			path->aStar(false);
 		} else {
 			failedPaths++;
@@ -330,8 +326,8 @@ void SupportPaths::FindPaths()
 		// works best when points are sorted from lowest to highest
 		// Also works best with Djikstra's instead of A*; A* doesn't search out other supports.
 		if (OVERLAP_PATHS) {  
-			for (PFNode* node : path->path) {
-				node->costToEnd = 0.0f;
+			for (shared_ptr<PFNode> node : path->path_) {
+				node->costToEnd_ = 0.0f;
 			}
 		}
 	}
@@ -351,7 +347,7 @@ void SupportPaths::Draw(DefaultShader shader)
 {
 	// TODO: completed paths should have their own geometry- render that 
 	// if it exists, otherwise render the wireframes.
-	for (Path *path : paths) {
+	for (Path *path : paths_) {
 		path->Draw(shader);
 	}
 }
@@ -362,7 +358,7 @@ void SupportPaths::DeleteSupport()
 	// TODO: DeleteSupport
 }
 
-// Creates the first three PFNodes of a path:
+// Creates the first three PFnodes_ of a path:
 //    1. Model connection point
 //    2. A point on the proper navigation surface face
 //    3. The closest Node on the navigation graph.
@@ -370,19 +366,19 @@ void SupportPaths::DeleteSupport()
 Path* SupportPaths::findStartNode(glm::vec3 point)
 {
 	// TODO: can just take face from ConnectionPoints.pointFaces
-	Face *face = modelGraph->getOctree()->getNearestFace(point);
-	Path *path = new Path(&nodes, maxOverhang, transform);
+	Face *face = modelGraph_->getOctree()->getNearestFace(point);
+	Path *path = new Path(&nodes_, maxOverhang_, transform_);
 	Node *startNode = new Node(-1, point, face->normal, true);
 	path->addNode(startNode);
 
 	// TODO: rayCast is broken.  Probably because the octree is unscaled.
 	//glm::vec3 pointTwo = point + 2.0f * face->normal;
-	glm::vec3 pointTwo = navGraph->getOctree()->rayCast(point, face->normal);
+	glm::vec3 pointTwo = navGraph_->getOctree()->rayCast(point, face->normal);
 	Node *nodeTwo = new Node(-1, pointTwo, face->normal, true);
 	path->addNode(nodeTwo);
 
-	int index = navGraph->getOctree()->getNearestNodeIndex(pointTwo);
-	path->addNode(navGraph->nodes[index]);
+	int index = navGraph_->getOctree()->getNearestNodeIndex(pointTwo);
+	path->addNode(navGraph_->nodes_[index]);
 
 	//TEST:
 	/*float dist = glm::distance(pointTwo, navGraph->nodes[index]->vertex.Position);

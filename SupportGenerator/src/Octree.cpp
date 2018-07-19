@@ -27,17 +27,15 @@ int ordered_set::popFromSet()
 }
 
 // RRemoves items in insertion order.
-int ordered_set::pop()
-{
+int ordered_set::pop() {
 	int t = vector[0];
 	set.erase(t);
 	return t;
 }
 
-Face::Face(int v1, int v2, int v3, const vector<shared_ptr<Vertex>> &vertices) 
-  : index1(v1), index2(v2), index3(v3), 
-  vertex1(vertices[index1]), vertex2(vertices[index2]), vertex3(vertices[index3])
-{
+Face::Face(int i1, int i2, int i3, const vector<shared_ptr<Vertex>> &vertices) 
+  : index1(i1), index2(i2), index3(i3), 
+  vertex1(vertices[index1]), vertex2(vertices[index2]), vertex3(vertices[index3]) {
 	edge21 = vertex2->Position - vertex1->Position;
 	edge31 = vertex3->Position - vertex1->Position;
 	edge32 = vertex3->Position - vertex2->Position;

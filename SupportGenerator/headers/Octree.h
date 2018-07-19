@@ -37,7 +37,7 @@ struct Face {
 	int index3 = -1;
 
   Face();
-	Face(int v1, int v2, int v3, const vector<shared_ptr<Vertex>> &vertices);
+	Face(int i1, int i2, int i3, const vector<shared_ptr<Vertex>> &vertices);
   Face(const Face& that);
   Face(Face&& that);
 

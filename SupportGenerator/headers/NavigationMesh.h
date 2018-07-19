@@ -11,35 +11,35 @@ using std::unordered_multimap;
 using glm::vec3;
 
 struct Edge {
-	unsigned int indexA_;
-	unsigned int indexB_;
+  weak_ptr<Node> a_;
+  weak_ptr<Node> b_;
 	float length_;
 
-	Edge(int a, int b, float len);
+	Edge(weak_ptr<Node> a, weak_ptr<Node> b, float length);
 };
 
 struct EdgeContainer {
-	unsigned int indexA_;
-	unsigned int indexB_;
+  weak_ptr<Node> a_;
+  weak_ptr<Node> b_;
 	vec3 negVert_;
 	vec3 posVert_;
 	float length_;
 
-	EdgeContainer(int a, int b, vec3 e1, vec3 e2);
+	EdgeContainer(weak_ptr<Node> a, weak_ptr<Node> b, vec3 e1, vec3 e2);
 };
 
 class EdgeHeap {
 public:
-	const unsigned int defaultSize_ = 20;
+	const unsigned int defaultSize = 20;
 	vector<Edge> heap_;
 
 	EdgeHeap();
-	EdgeHeap(vector<shared_ptr<Face>> &faces);
+	EdgeHeap(vector<shared_ptr<Node>> &nodes, vector<shared_ptr<Face>> &faces);
 	~EdgeHeap();
 
 	bool empty();
-	Edge* pop();
-	void push(Edge *e);
+	Edge pop();
+	void push(Edge e);
 	bool heapTest();
 };
 
@@ -63,25 +63,26 @@ class NavigationMesh
 {
 public:
 	unsigned int VAO, VBO, EBO;
-  shared_ptr<Model> model_;
+  vector<shared_ptr<Vertex>> vertices_;
+  vector<int> indices_;
   shared_ptr<Graph> graph_;
   shared_ptr<Mesh> mesh_;
 
-
-	NavigationMesh(Model &newModel); 
+	NavigationMesh(vector<shared_ptr<Vertex>> &vertices, vector<int> &indices);
 	~NavigationMesh();
 
 	// TODO: return smart pointers for mesh and graph
 	// suggested value of minDist = 0.5 * (support width) + offset
-	Graph* getSimpleGraph(float minLength);
-	Mesh* convertToMesh(Graph *g, float offset);
+  shared_ptr<Graph> getSimpleGraph(float minLength);
+  shared_ptr<Mesh> convertToMesh(shared_ptr<Graph> graph, float offset);
 	void PruneSubBedVertices(glm::mat4 model); 
 	void Draw(DefaultShader shader);
 
 private:
-	void decimateMesh(Graph *g, float minLength);
-	void facesToIndices(Graph *g, std::vector<unsigned int> &indices);
-	bool edgeValid(Edge *edge, Graph *g);
+	void decimateMesh(shared_ptr<Graph> graph, float minLength);
+  void reduceFootprint(shared_ptr<Graph> graph);
+	void facesToIndices(shared_ptr<Graph> graph, std::vector<unsigned int> &indices);
+	bool edgeValid(Edge edge, shared_ptr<Graph> graph);
 	
 	void heapTest();
 };

@@ -1,14 +1,14 @@
 #include "NavigationMesh.h"
 
 
-Edge::Edge(int a, int b, float length_) : indexA_(a), indexB_(b), length_(length_)
+Edge::Edge(weak_ptr<Node> a, weak_ptr<Node> b, float length) : a_(a), b_(b), length_(length)
 {
 
 }
 
 
-EdgeContainer::EdgeContainer(int a, int b, glm::vec3 e1, glm::vec3 e2) :
-	indexA_(a), indexB_(b)
+EdgeContainer::EdgeContainer(weak_ptr<Node> a, weak_ptr<Node> b, glm::vec3 e1, glm::vec3 e2) :
+	a_(a), b_(b)
 {
 	if (e1.x < e2.x) {
 		negVert_ = e1;
@@ -113,12 +113,10 @@ bool operator<(const Edge& a, const Edge& b)
 }
 
 
-NavigationMesh::NavigationMesh(Model &newModel)
-{
-	model_ = &newModel; 
+NavigationMesh::NavigationMesh(vector<shared_ptr<Vertex>> &vertices, vector<int> &indices) {
 	//double time = glfwGetTime();
 	// 27.6864 seconds to build graph
-	graph_ = new Graph(*model_);
+	graph_ = shared_ptr<Graph>(new Graph(vertices, indices));
 	//std::cout << "Time to build Graph: " << glfwGetTime() - time << std::endl;
 }
 
@@ -129,70 +127,82 @@ NavigationMesh::~NavigationMesh()
 }
 
 // Returns a new simplified (decimated), scaled and cleaned Graph.
-Graph * NavigationMesh::getSimpleGraph(float minlength_)
+shared_ptr<Graph> NavigationMesh::getSimpleGraph(float minlength_)
 {
 	//float time = glfwGetTime();
 	// 57.52 seconds to run decimateMesh
 
-	Graph *smallGraph = new Graph(graph->nodes, graph->faceVector);
-	decimateMesh(smallGraph, minlength_);
+  shared_ptr<Graph> graph = shared_ptr<Graph>(new Graph(graph_->nodes_));
+	decimateMesh(graph, minlength_);
 	//std::cout << "Time to reduce mesh: " << glfwGetTime() - time << std::endl;
 
-	return smallGraph;
+	return graph;
 }
 
 // Simplifies a mesh by removing the smallest edge until all edges are longer than minlength_.
-void NavigationMesh::decimateMesh(Graph *g, float minlength_)
+void NavigationMesh::decimateMesh(shared_ptr<Graph> graph, float minlength_)
 {
-	EdgeHeap edgeHeap(g->faceVector); // 184 milliseconds
+	EdgeHeap edgeHeap(graph->nodes_, graph->faces_); // 184 milliseconds
 	float smallestEdge = 0.0f;
 	while (!edgeHeap.empty() && smallestEdge < minlength_) {
 		//	pop() until you get a valid edge (ie both vertices exist)
-		Edge *e = edgeHeap.pop();
-		while (!edgeValid(e, g) && !edgeHeap.empty()) { // 736 milliseconds
-			delete(e);
+		Edge e = edgeHeap.pop();
+		while (!edgeValid(e, graph) && !edgeHeap.empty()) { // 736 milliseconds
 			e = edgeHeap.pop();
 		}
 
-		int newIndex = g->CombineNodes(e->indexA_, e->indexB_); // 847 milliseconds
-		glm::vec3 a = g->nodes[newIndex]->vertex.Position;
+    shared_ptr<Node> newNode = graph->CombineNodes(e.a_.lock(), e.b_.lock()); // 847 milliseconds
+		glm::vec3 a = newNode->vertex_.Position;
 
 		//	add all the new edges to the minheap
-		for (int connection : g->nodes[newIndex]->connections) {
-			Node *node = g->nodes[connection];
+		for (weak_ptr<Node> connection : newNode->connections_) {
+      auto node = connection.lock();
 			if (node) {
-				glm::vec3 b = node->vertex.Position;
+				glm::vec3 b = node->vertex_.Position;
 				float length_ = glm::distance(a, b);
 		
-				edgeHeap.push(new Edge(newIndex, connection, length_));
+				edgeHeap.push(Edge(weak_ptr<Node>(newNode), connection, length_));
 			}
 		}
 
-		smallestEdge = e->length_;
-		delete(e);
+		smallestEdge = e.length_;
 	} 
 
-	g->ReduceFootprint();
+	reduceFootprint(graph);
+}
+
+// Removes nodes from memory
+void NavigationMesh::reduceFootprint(shared_ptr<Graph> graph) {
+  int index = 0;
+  for (shared_ptr<Node> n : graph->nodes_) {
+    if (n && !n->removed) {
+      graph->nodes_[index] = n;
+      index++;
+    }
+  }
+
+  graph->nodes_.resize(index);
+  graph->nodes_.shrink_to_fit();
 }
 
 // Creates a renderable mesh from a Graph, and scales it by offset.
-Mesh* NavigationMesh::convertToMesh(Graph *g, float offset)
+shared_ptr<Mesh> NavigationMesh::convertToMesh(shared_ptr<Graph> graph, float offset)
 {
 	//float time = glfwGetTime();
-	g->recalculateNormalsFromFaces();
-	g->scale(offset);
+	graph->recalculateNormalsFromFaces();
+	graph->scale(offset);
 	std::vector<Vertex> vertices;
-	vertices.reserve(g->nodes.size());
+	vertices.reserve(graph->nodes_.size());
 
-	for (Node *node : g->nodes) {
-		vertices.push_back(Vertex(node->vertex.Position, node->vertex.Normal, true));
+	for (shared_ptr<Node> node : graph->nodes_) {
+		vertices.push_back(Vertex(node->vertex_.Position, node->vertex_.Normal, true));
 	}
 
 	std::vector<unsigned int> indices;
-	facesToIndices(g, indices);
-	mesh = new Mesh(vertices, indices);
+	facesToIndices(graph, indices);
+	mesh_ = shared_ptr<Mesh>(new Mesh(vertices, indices));
 	//std::cout << "Time to convert mesh: " << glfwGetTime() - time << std::endl;
-	return mesh;
+	return mesh_;
 }
 
 // Removes Nodes which are below the print bed.
@@ -203,12 +213,12 @@ void NavigationMesh::PruneSubBedVertices(glm::mat4 model)
 }
 
 // Adds indices to a given vector, generated from the faces of a Graph g.
-void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices)
+void NavigationMesh::facesToIndices(shared_ptr<Graph> graph, std::vector<unsigned int> &indices)
 {
-	for (Face *face : g->faceVector) {
-		if (face && g->nodes[face->index1] && 
-					g->nodes[face->index2] && 
-					g->nodes[face->index3]) {
+	for (shared_ptr<Face> face : graph->faces_) {
+		if (face && graph->nodes_[face->index1] && 
+					graph->nodes_[face->index2] && 
+					graph->nodes_[face->index3]) {
 
 			indices.push_back(face->index1);
 			indices.push_back(face->index2);
@@ -218,9 +228,9 @@ void NavigationMesh::facesToIndices(Graph *g, std::vector<unsigned int> &indices
 }
 
 // Returns true if the nodes composing an edge exist.  
-bool NavigationMesh::edgeValid(Edge *edge, Graph *g)
+bool NavigationMesh::edgeValid(Edge edge, shared_ptr<Graph> graph)
 {
-	return g->nodes[edge->indexA_] && g->nodes[edge->indexB_];
+	return edge.a_.lock() && edge.b_.lock();
 }
 
 // Compares a std::priority_queue to my implementation.  
@@ -243,7 +253,7 @@ void NavigationMesh::heapTest()
 	int testNumber = 10000;
 	testEdges.reserve(testNumber * 1.5);
 	for (int i = 0; i < testNumber; i++) {
-		testEdges.push_back(Edge(0, 0, rand(gen)));
+		testEdges.push_back(Edge(weak_ptr<Node>(), weak_ptr<Node>(), rand(gen)));
 	}
 
 	if (!builtInClass.empty()) 
@@ -288,7 +298,7 @@ void NavigationMesh::heapTest()
 	}
 	for (int i = 0; i < testNumber / 2; i++) {
 		size++;
-		testEdges.push_back(Edge(0, 0, rand(gen)));
+		testEdges.push_back(Edge(weak_ptr<Node>(), weak_ptr<Node>(), rand(gen)));
 		builtInClass.push(testEdges.back());
 	}
 	size--;
@@ -311,10 +321,10 @@ void NavigationMesh::heapTest()
 // Draws the navigation surface in blue, as a wireframe.
 void NavigationMesh::Draw(DefaultShader shader)
 {
-	if (mesh) {
+	if (mesh_) {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		shader.setVec4("color", glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-		mesh->Draw(shader);
+		mesh_->Draw(shader);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 }
@@ -322,79 +332,80 @@ void NavigationMesh::Draw(DefaultShader shader)
 
 EdgeHeap::EdgeHeap()
 {
-	heap.reserve(defaultSize);
-	heap.push_back(NULL); //fill up spot zero
+	heap_.reserve(defaultSize);
+	heap_.push_back(Edge(weak_ptr<Node>(), weak_ptr<Node>(), 0.0f)); //fill up spot zero
 }
 
 
-EdgeHeap::EdgeHeap(std::vector<Face*>& faces)
+EdgeHeap::EdgeHeap(vector<shared_ptr<Node>> &nodes, vector<shared_ptr<Face>> &faces)
 {
-	heap.reserve(2 * faces.size() + 1);
-	heap.push_back(NULL); //fill up spot zero
+	heap_.reserve(2 * faces.size() + 2);
+	heap_.push_back(Edge(weak_ptr<Node>(), weak_ptr<Node>(), 0.0f)); //fill up spot zero
 	EdgeSet edges;
 
 	for (unsigned int i = 0; i < faces.size(); i += 3) {
-		Face *face = faces[i];
-		glm::vec3 a = face->vertex1;
-		glm::vec3 b = face->vertex2;
-		glm::vec3 c = face->vertex3;
+    shared_ptr<Face> face = faces[i];
+		glm::vec3 a = face->vertex1->Position;
+		glm::vec3 b = face->vertex2->Position;
+		glm::vec3 c = face->vertex3->Position;
+
+    weak_ptr<Node> n1 = nodes[face->index1];
+    weak_ptr<Node> n2 = nodes[face->index2];
+    weak_ptr<Node> n3 = nodes[face->index3];
 		
 		if (face->index1 != face->index2)
-			edges.insert(new EdgeContainer(face->index1, face->index2, a, b));
+			edges.insert(new EdgeContainer(n1, n2, a, b));
 		if (face->index2 != face->index3)
-			edges.insert(new EdgeContainer(face->index2, face->index3, b, c));
+			edges.insert(new EdgeContainer(n2, n3, b, c));
 		if (face->index3 != face->index1)
-			edges.insert(new EdgeContainer(face->index3, face->index1, c, a));
+			edges.insert(new EdgeContainer(n3, n1, c, a));
 	}
 
 	// Insert the unique edges to a heap
-	for (EdgeContainer *e : edges.edges) {
-		push(new Edge(e->indexA_, e->indexB_, e->length_));
+	for (EdgeContainer *e : edges.edges_) {
+		push(Edge(e->a_, e->b_, e->length_));
 	}
 }
 
 
 EdgeHeap::~EdgeHeap()
 {
-	for (Edge *e : heap) {
-		delete e;
-	}
 }
 
 
 bool EdgeHeap::empty()
 {
-	return heap.size() == 1;
+	return heap_.size() == 1;
 }
 
 
-Edge * EdgeHeap::pop() // 733 milliseconds
+Edge EdgeHeap::pop() // 733 milliseconds
 {
 	// This method is O(2logn).  
 	// An O(logn) method is to promote children until you reach a leaf,
 	// then filling that leaf with another leaf and bubbling it up.
-	Edge *topEdge = heap[1];
-	Edge *bubbleEdge = heap.back();
-	float bubblelength_ = bubbleEdge->length_;
-	heap[1] = bubbleEdge;
-	heap.pop_back();
+	Edge topEdge = heap_[1];
+	Edge bubbleEdge = heap_.back();
+	float bubblelength_ = bubbleEdge.length_;
+	heap_[1] = bubbleEdge;
+	heap_.pop_back();
 
 	int index = 1;
 	int leftChild = 2;
 	int minIndex = index;
 
-	while (leftChild < heap.size()) {
+	while (leftChild < heap_.size()) {
 		float minValue = bubblelength_;
 
-		float childValue = heap[leftChild]->length_; // 164 milliseconds
+		float childValue = heap_[leftChild].length_; // 164 milliseconds
 		if (childValue < minValue) { // 410 milliseconds
 			minValue = childValue;
 			minIndex = leftChild;
 		}
 		
 		int rightChild = leftChild + 1;
-		if (rightChild < heap.size()) {
-			childValue = heap[rightChild]->length_;
+		if (rightChild < heap_.size()) {
+			childValue = heap_[rightChild].length_;
 			if (childValue < minValue) {
 				minIndex = rightChild;
 			}
@@ -403,36 +414,36 @@ Edge * EdgeHeap::pop() // 733 milliseconds
 		if (minIndex == index)
 			break;
 
-		heap[index] = heap[minIndex];
+		heap_[index] = heap_[minIndex];
 		index = minIndex;
 		leftChild = index << 1;
 	}
 
-	heap[minIndex] = bubbleEdge;
+	heap_[minIndex] = bubbleEdge;
 
 	return topEdge;
 }
 
 
-void EdgeHeap::push(Edge * e)
+void EdgeHeap::push(Edge e)
 {
 	// TODO: investigate deleting invalid edges as they are discovered-
   // that might be faster than calling pop each time.  It's tricky, though.
-  int index = heap.size();
-	heap.push_back(e);
+  int index = heap_.size();
+	heap_.push_back(e);
 	int parent = index >> 1; // Divide by two
 
 	if (parent > 0) {
 		// Can this be threaded?  It's overkill, but if it lets
 		// the caller start faster then it might be worth it.
 		// You'd just join the thread at the top of pop().
-		Edge *swapHolder = heap[parent];
-		float insertValue = e->length_;
-		float parentValue = heap[parent]->length_;
+		Edge swapHolder = heap_[parent];
+		float insertValue = e.length_;
+		float parentValue = heap_[parent].length_;
 
 		while (insertValue < parentValue) { // i/2 is equivalength_t to floor(i/2)
-			heap[index] = swapHolder;
-			heap[parent] = e;
+			heap_[index] = swapHolder;
+			heap_[parent] = e;
 
 			index = parent;
 			// If index is at the top of the heap (ie at 1):
@@ -441,8 +452,8 @@ void EdgeHeap::push(Edge * e)
 			if (index > 1) 
 				parent >>= 1;
 
-			swapHolder = heap[parent];
-			parentValue = swapHolder->length_;
+			swapHolder = heap_[parent];
+			parentValue = swapHolder.length_;
 		}
 	}
 }
@@ -452,12 +463,12 @@ bool EdgeHeap::heapTest()
 {
 	std::default_random_engine gen;
 	std::uniform_real_distribution<double> rand(0.0, 1000.0);
-	std::vector<Edge*> testEdges;
+	std::vector<Edge> testEdges;
 	int testNumber = 10000;
 
 	testEdges.reserve(testNumber * 1.5);
 	for (int i = 0; i < testNumber; i++) {
-		testEdges.push_back(new Edge(0, 0, rand(gen)));
+		testEdges.push_back(Edge(weak_ptr<Node>(), weak_ptr<Node>(), rand(gen)));
 	}
 
 	if (!empty()) {
@@ -465,7 +476,7 @@ bool EdgeHeap::heapTest()
 		return false;
 	}
 
-	for (Edge *e : testEdges) {
+	for (Edge e : testEdges) {
 		push(e);
 	}
 	if (empty()) {
@@ -473,20 +484,20 @@ bool EdgeHeap::heapTest()
 		return false;
 	}
 
-	float heapMin = pop()->length_;
+	float heapMin = pop().length_;
 	for (int i = 0; i < testNumber - 1; i++) {
 		if (empty()) {
 			std::cout << "Error!  Edgeheap empty!" << std::endl;
 			return false;
 		}
 			
-		Edge *e = pop();
-		if (e->length_ < heapMin) {
+		Edge e = pop();
+		if (e.length_ < heapMin) {
 			std::cout << "Error!  Edges returned out of order!" << std::endl;
 			return false;
 		}
 
-		heapMin = e->length_;
+		heapMin = e.length_;
 	}
 	if (!empty()) {
 		std::cout << "Error!  Edgeheap not empty!" << std::endl;
@@ -494,7 +505,7 @@ bool EdgeHeap::heapTest()
 	}
 		
 	int size = 0;
-	for (Edge *e : testEdges) {
+	for (Edge e : testEdges) {
 		size++;
 		push(e);
 	}
@@ -504,15 +515,15 @@ bool EdgeHeap::heapTest()
 	}
 	for (int i = 0; i < testNumber / 2; i++) {
 		size++;
-		testEdges.push_back(new Edge(0, 0, rand(gen)));
+		testEdges.push_back(Edge(weak_ptr<Node>(), weak_ptr<Node>(), rand(gen)));
 		push(testEdges.back());
 	}
 	size--;
-	heapMin = pop()->length_;
+	heapMin = pop().length_;
 	while (!empty()) {
 		size--;
-		Edge *e = pop();
-		if (e->length_ < heapMin) {
+		Edge e = pop();
+		if (e.length_ < heapMin) {
 			std::cout << "Error!  Edges returned out of order!" << std::endl;
 			return false;
 		}
@@ -522,8 +533,5 @@ bool EdgeHeap::heapTest()
 		return false;
 	}
 
-	for (Edge *e : testEdges) {
-		delete e;
-	}
 	return true;
 }
